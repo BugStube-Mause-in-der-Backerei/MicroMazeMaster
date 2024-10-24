@@ -1,0 +1,13 @@
+[default]
+
+[default.logging]
+level = "INFO"
+
+[default.typer]
+enable_pretty_exception = true
+show_pretty_exception_local = false
+
+[testing]
+
+[testing.logging]
+level = "DEBUG"
