@@ -1,10 +1,10 @@
 import numpy as np
-from src.micromazemaster.utils.config import settings
-from src.micromazemaster.utils.qlearning.helper import (preprocess_walls,
-                                                        train,
-                                                        simulate_path,
-                                                        plot_perceived_walls,
-                                                        plot_training_progress)
+from micromazemaster.utils.config import settings
+from micromazemaster.utils.qlearning.helper import (preprocess_walls,
+                                                    train,
+                                                    simulate_path,
+                                                    plot_perceived_walls,
+                                                    plot_training_progress)
 
 class Qlearning:
     def __init__(self, maze, start_position, goal_position):

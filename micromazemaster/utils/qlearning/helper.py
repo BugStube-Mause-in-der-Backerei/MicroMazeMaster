@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-from src.micromazemaster.utils.config import settings
+from micromazemaster.utils.config import settings
 
 def preprocess_walls(walls):
     walls_as_tuples = [wall.get_positions() for wall in walls]

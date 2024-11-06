@@ -1,7 +1,7 @@
 import customtkinter as ctk
-from src.micromazemaster.models.maze import Maze
+from micromazemaster.models.maze import Maze
 import random
-from src.micromazemaster.utils.qlearning import Qlearning
+from micromazemaster.utils.qlearning import Qlearning
 
 maze = None
 path = None
