@@ -9,7 +9,7 @@ readme = "README.md"
 micromazemaster = "micromazemaster.tools.cli:micromazemaster_cli"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "~3.12"
 rich = "^13.9.3"
 typer = "^0.12.5"
 dynaconf = "^3.2.6"
