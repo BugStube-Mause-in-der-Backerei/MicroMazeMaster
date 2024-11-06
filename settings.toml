@@ -1,4 +1,11 @@
 [default]
+LEARNING_RATE = 0.1
+DISCOUNT_FACTOR = 0.9
+EPSILON_START = 0.3
+EPSILON_DECAY = 0.999
+NUM_EPISODES = 100
+MAX_STEPS_PER_EPISODE = 1000
+ACTIONS = ["forward", "turn_left", "turn_right"]
 
 [default.logging]
 level = "INFO"
