@@ -3,7 +3,7 @@ import random
 from collections import deque
 from micromazemaster.utils.logging import logger
 from PIL import Image, ImageDraw
-from micromazemaster import settings
+from micromazemaster.utils.config import settings
 
 
 class Cell:
