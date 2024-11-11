@@ -1,18 +1,24 @@
-import numpy as np
 import random
+
 import matplotlib.pyplot as plt
+import numpy as np
 from micromazemaster.utils.config import settings
+from micromazemaster.utils.logging import logger
+
 
 def preprocess_walls(walls):
     walls_as_tuples = [wall.get_positions() for wall in walls]
 
-    walls_sorted_by_x = sorted(walls_as_tuples, key=lambda wall: (
-        min(wall[0][0], wall[1][0]), min(wall[0][1], wall[1][1])))
+    walls_sorted_by_x = sorted(
+        walls_as_tuples, key=lambda wall: (min(wall[0][0], wall[1][0]), min(wall[0][1], wall[1][1]))
+    )
 
-    walls_sorted_by_y = sorted(walls_as_tuples, key=lambda wall: (
-        min(wall[0][1], wall[1][1]), min(wall[0][0], wall[1][0])))
+    walls_sorted_by_y = sorted(
+        walls_as_tuples, key=lambda wall: (min(wall[0][1], wall[1][1]), min(wall[0][0], wall[1][0]))
+    )
 
     return walls_sorted_by_x, walls_sorted_by_y
+
 
 def hits_wall(position, new_position, walls_sorted_by_x, walls_sorted_by_y):
     x, y = position
@@ -53,9 +59,11 @@ def hits_wall(position, new_position, walls_sorted_by_x, walls_sorted_by_y):
                     return True
     return False
 
+
 def is_valid_position(position, maze_size):
     x, y = position
     return 0 <= x < maze_size[0] and 0 <= y < maze_size[1]
+
 
 def get_next_position(position, orientation, action, walls_sorted_by_x, walls_sorted_by_y, maze_size):
     x, y = position
@@ -76,17 +84,30 @@ def get_next_position(position, orientation, action, walls_sorted_by_x, walls_so
             return position, orientation
 
         if not is_valid_position(new_position, maze_size):
-            print(f"Invalid position detected: {new_position}")
+            logger.error(f"Invalid position detected: {new_position}")
             return position, orientation
 
         return new_position, orientation
 
     return position, orientation
 
-def train(num_episodes, max_steps_per_episode, start_position, actions, q_table,
-          goal_position, learning_rate, discount_factor, epsilon_decay, epsilon, walls_sorted_by_x,
-          walls_sorted_by_y, maze_size):
-    best_path_length = float('inf')
+
+def train(
+    num_episodes,
+    max_steps_per_episode,
+    start_position,
+    actions,
+    q_table,
+    goal_position,
+    learning_rate,
+    discount_factor,
+    epsilon_decay,
+    epsilon,
+    walls_sorted_by_x,
+    walls_sorted_by_y,
+    maze_size,
+):
+    best_path_length = float("inf")
     best_path = None
     episode_rewards = []
     episode_steps = []
@@ -108,31 +129,29 @@ def train(num_episodes, max_steps_per_episode, start_position, actions, q_table,
                 action = actions[np.argmax(q_table[state])]
 
             new_position, new_orientation = get_next_position(
-                position, orientation, action, walls_sorted_by_x, walls_sorted_by_y, maze_size)
+                position, orientation, action, walls_sorted_by_x, walls_sorted_by_y, maze_size
+            )
 
             next_state = (new_position[0], new_position[1], new_orientation)
 
             if next_state not in q_table:
-                print(f"Invalid state reached: {
-                      next_state}. Skipping this step.")
+                logger.warning(f"Invalid state reached: {next_state}. Skipping this step.")
                 continue
 
-            hit_wall = (new_position == position and action == "forward")
+            hit_wall = new_position == position and action == "forward"
 
-            reward = get_reward(new_position, goal_position,
-                                hit_wall, prev_positions)
+            reward = get_reward(new_position, goal_position, hit_wall, prev_positions)
             total_reward += reward
 
             current_q = q_table[state][actions.index(action)]
             max_future_q = np.max(q_table[next_state])
-            new_q = (1 - learning_rate) * current_q + \
-                learning_rate * (reward + discount_factor * max_future_q)
+            new_q = (1 - learning_rate) * current_q + learning_rate * (reward + discount_factor * max_future_q)
             q_table[state][actions.index(action)] = new_q
 
             position = new_position
             orientation = new_orientation
             prev_positions.append(position)
-            if action == 'forward':
+            if action == "forward":
                 steps += 1
 
             if position == goal_position:
@@ -141,8 +160,8 @@ def train(num_episodes, max_steps_per_episode, start_position, actions, q_table,
         if position == goal_position and len(prev_positions) < best_path_length:
             best_path_length = len(prev_positions)
             best_path = prev_positions.copy()
-            print(f"\nNew best path found in episode {episode + 1}!")
-            print(f"Path length: {best_path_length}")
+            logger.info(f"New best path found in episode {episode + 1}!")
+            logger.info(f"Path length: {best_path_length}")
 
         episode_rewards.append(total_reward)
         episode_steps.append(steps)
@@ -150,11 +169,14 @@ def train(num_episodes, max_steps_per_episode, start_position, actions, q_table,
         epsilon = max(0.1, epsilon * epsilon_decay)
 
         if (episode + 1) % 100 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}, "
-                  f"Steps: {steps}, Total Reward: {total_reward:.1f}, "
-                  f"Epsilon: {epsilon:.3f}")
+            logger.info(
+                f"Episode {episode + 1}/{num_episodes}, "
+                f"Steps: {steps}, Total Reward: {total_reward:.1f}, "
+                f"Epsilon: {epsilon:.3f}"
+            )
 
     return episode_rewards, episode_steps, best_path
+
 
 def get_reward(position, goal, hit_wall, prev_positions):
     if position == goal:
@@ -164,8 +186,7 @@ def get_reward(position, goal, hit_wall, prev_positions):
     if position in prev_positions[:-1]:
         return -50
 
-    distance_to_goal = np.sqrt(
-        (position[0] - goal[0])**2 + (position[1] - goal[1])**2)
+    distance_to_goal = np.sqrt((position[0] - goal[0]) ** 2 + (position[1] - goal[1]) ** 2)
     distance_reward = -0.05 * distance_to_goal
 
     return distance_reward
@@ -175,20 +196,18 @@ def plot_perceived_walls(walls, perceived_walls, path, start_position, goal_posi
     fig, ax = plt.subplots(figsize=maze_size)
 
     for wall in walls:
-        (x1, y1), (x2,
-                   y2) = wall.get_positions()
-        ax.plot([x1, x2], [y1, y2], 'k', linewidth=2, zorder=1)
+        (x1, y1), (x2, y2) = wall.get_positions()
+        ax.plot([x1, x2], [y1, y2], "k", linewidth=2, zorder=1)
 
     for wall in perceived_walls:
         (x1, y1), (x2, y2) = wall
-        ax.plot([x1, x2], [y1, y2], linestyle='--', linewidth=1, color='red', zorder=2,
-                label="Perceived Wall")
+        ax.plot([x1, x2], [y1, y2], linestyle="--", linewidth=1, color="red", zorder=2, label="Perceived Wall")
 
     path_x, path_y = zip(*path)
-    ax.plot(path_x, path_y, 'b-', label="Path", zorder=3)
+    ax.plot(path_x, path_y, "b-", label="Path", zorder=3)
 
-    ax.plot(start_position[0], start_position[1], 'go', markersize=10, label="Start", zorder=4)
-    ax.plot(goal_position[0], goal_position[1], 'ro', markersize=10, label="Goal", zorder=4)
+    ax.plot(start_position[0], start_position[1], "go", markersize=10, label="Start", zorder=4)
+    ax.plot(goal_position[0], goal_position[1], "ro", markersize=10, label="Goal", zorder=4)
 
     ax.set_xlim(-1, maze_size[0])
     ax.set_ylim(-1, maze_size[1])
@@ -199,8 +218,10 @@ def plot_perceived_walls(walls, perceived_walls, path, start_position, goal_posi
 
     return fig
 
-def simulate_path(start_position, goal_position, q_table, max_steps, actions, walls_sorted_by_x,
-                  walls_sorted_by_y, maze_size):
+
+def simulate_path(
+    start_position, goal_position, q_table, max_steps, actions, walls_sorted_by_x, walls_sorted_by_y, maze_size
+):
     position = start_position
     orientation = 0
     actions_taken = []
@@ -220,9 +241,12 @@ def simulate_path(start_position, goal_position, q_table, max_steps, actions, wa
         actions_taken.append(action)
 
         new_position, new_orientation = get_next_position(
-            position, orientation, action, walls_sorted_by_x, walls_sorted_by_y, maze_size)
+            position, orientation, action, walls_sorted_by_x, walls_sorted_by_y, maze_size
+        )
 
-        if not is_valid_position(new_position, maze_size) or (action == "forward" and hits_wall(position, new_position, walls_sorted_by_x, walls_sorted_by_y)):
+        if not is_valid_position(new_position, maze_size) or (
+            action == "forward" and hits_wall(position, new_position, walls_sorted_by_x, walls_sorted_by_y)
+        ):
             perceived_walls.append((position, new_position))
             new_position = position
         else:
@@ -241,18 +265,18 @@ def plot_training_progress(episode_rewards, episode_steps):
     plt.figure(figsize=(12, 6))
 
     plt.subplot(2, 1, 1)
-    plt.plot(episodes, episode_rewards, label='Total Reward', color='b')
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
-    plt.title('Total Reward per Episode')
+    plt.plot(episodes, episode_rewards, label="Total Reward", color="b")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Reward")
+    plt.title("Total Reward per Episode")
     plt.grid(True)
     plt.legend()
 
     plt.subplot(2, 1, 2)
-    plt.plot(episodes, episode_steps, label='Steps to Goal', color='g')
-    plt.xlabel('Episode')
-    plt.ylabel('Steps')
-    plt.title('Steps to Reach Goal per Episode')
+    plt.plot(episodes, episode_steps, label="Steps to Goal", color="g")
+    plt.xlabel("Episode")
+    plt.ylabel("Steps")
+    plt.title("Steps to Reach Goal per Episode")
     plt.grid(True)
     plt.legend()
 

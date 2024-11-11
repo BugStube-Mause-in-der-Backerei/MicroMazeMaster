@@ -1,6 +1,5 @@
 import typer
-
-from micromazemaster import settings
+from micromazemaster.utils.config import settings
 
 micromazemaster_cli = typer.Typer(
     invoke_without_command=True,

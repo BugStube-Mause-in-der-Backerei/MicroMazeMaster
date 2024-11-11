@@ -1,6 +1,8 @@
+import random
+
 import customtkinter as ctk
 from micromazemaster.models.maze import Maze
-import random
+from micromazemaster.utils.logging import logger
 from micromazemaster.utils.qlearning import Qlearning
 
 maze = None
@@ -8,13 +10,15 @@ path = None
 scale = 50
 dot_radius = 10
 
+
 def button_callback():
     global maze
     global path
     maze = Maze(10, 10, random.randrange(100))
-    model= Qlearning(maze=maze, start_position=(0.5, 0.5), goal_position=(5.5, 5.5))
+    model = Qlearning(maze=maze, start_position=(0.5, 0.5), goal_position=(5.5, 5.5))
     _plt, path = model.run()
     update_canvas()
+
 
 def update_canvas():
     global path
@@ -35,22 +39,27 @@ def update_canvas():
 
         x, y = path[0]
         canvas.create_oval(
-            (x * scale) - dot_radius, (y * scale) - dot_radius,
-            (x * scale) + dot_radius, (y * scale) + dot_radius,
-            fill="green"
+            (x * scale) - dot_radius,
+            (y * scale) - dot_radius,
+            (x * scale) + dot_radius,
+            (y * scale) + dot_radius,
+            fill="green",
         )
 
         x, y = path[-1]
         canvas.create_oval(
-            (x * scale) - dot_radius, (y * scale) - dot_radius,
-            (x * scale) + dot_radius, (y * scale) + dot_radius,
-            fill="red"
+            (x * scale) - dot_radius,
+            (y * scale) - dot_radius,
+            (x * scale) + dot_radius,
+            (y * scale) + dot_radius,
+            fill="red",
         )
 
 
 def on_close():
-    print("Window is closing...")
+    logger.info("Window is closing...")
     root.quit()
+
 
 def micromazemaster_gui():
     global canvas
@@ -68,6 +77,7 @@ def micromazemaster_gui():
     root.protocol("WM_DELETE_WINDOW", on_close)
 
     root.mainloop()
+
 
 if __name__ == "__main__":
     micromazemaster_gui()

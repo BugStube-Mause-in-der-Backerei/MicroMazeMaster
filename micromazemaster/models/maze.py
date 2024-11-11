@@ -1,8 +1,10 @@
 import json
 import random
 from collections import deque
+from micromazemaster.utils.logging import logger
 from PIL import Image, ImageDraw
 from micromazemaster import settings
+
 
 class Cell:
     def __init__(self):
@@ -11,25 +13,24 @@ class Cell:
         self.e = True
         self.w = True
 
+
 class Wall:
     def __init__(self, start_x, start_y, end_x, end_y):
         self.start_position = (start_x, start_y)
         self.end_position = (end_x, end_y)
 
     def to_dict(self):
-        return {
-            'start_position': self.start_position,
-            'end_position': self.end_position
-        }
+        return {"start_position": self.start_position, "end_position": self.end_position}
 
     @classmethod
     def from_dict(cls, wall_dict):
-        start_x, start_y = wall_dict['start_position']
-        end_x, end_y = wall_dict['end_position']
+        start_x, start_y = wall_dict["start_position"]
+        end_x, end_y = wall_dict["end_position"]
         return cls(start_x, start_y, end_x, end_y)
 
     def get_positions(self):
         return self.start_position, self.end_position
+
 
 class Maze:
     def __init__(self, width, height, seed, missing_walls=settings.WALLS_TO_REMOVE, generation=True):
@@ -43,11 +44,11 @@ class Maze:
 
     def to_dict(self):
         return {
-            'seed': self.seed,
-            'width': self.width,
-            'height': self.height,
-            'missing_walls': self.missing_walls,
-            'walls': [wall.to_dict() for wall in self.walls]
+            "seed": self.seed,
+            "width": self.width,
+            "height": self.height,
+            "missing_walls": self.missing_walls,
+            "walls": [wall.to_dict() for wall in self.walls]
         }
 
     def __generate_maze(self):
@@ -145,13 +146,15 @@ class Maze:
         self.walls.append(Wall(0, self.height, 0, 0))
 
     def __generate_image(self, cell_size=20):
-        image = Image.new('1', (self.width * cell_size + 1, self.height * cell_size + 1))
+        image = Image.new("1", (self.width * cell_size + 1, self.height * cell_size + 1))
 
         draw = ImageDraw.Draw(image)
 
         for wall in self.walls:
-            line = ((wall.start_position[0] * cell_size, wall.start_position[1] * cell_size),
-                    (wall.end_position[0] * cell_size, wall.end_position[1] * cell_size))
+            line = (
+                (wall.start_position[0] * cell_size, wall.start_position[1] * cell_size),
+                (wall.end_position[0] * cell_size, wall.end_position[1] * cell_size),
+            )
             draw.line(line, fill=1)
 
         return image
@@ -169,16 +172,16 @@ class Maze:
             with open(path, "w") as file:
                 json.dump(self.to_dict(), file)
         except Exception as e:
-            print(f"Error writing to file: {e}")
+            logger.error(f"Error writing to file: {e}")
 
     @classmethod
     def from_json(cls, path):
         try:
-            with open(path, 'r') as file:
+            with open(path, "r") as file:
                 data = json.load(file)
-                maze = cls(data['width'], data['height'], data['seed'], data['missing_walls'], generation=False)
-                maze.walls = [Wall.from_dict(wall_data) for wall_data in data['walls']]
+                maze = cls(data["width"], data["height"], data["seed"], data["missing_walls"], generation=False)
+                maze.walls = [Wall.from_dict(wall_data) for wall_data in data["walls"]]
                 return maze
         except Exception as e:
-            print(f"Error reading from file: {e}")
+            logger.error(f"Error reading from file: {e}")
             return None

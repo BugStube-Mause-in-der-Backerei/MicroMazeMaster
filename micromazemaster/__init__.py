@@ -16,6 +16,4 @@ cool_banner = rf"""
 """
 from rich import print  # noqa
 
-from micromazemaster.utils.config import settings  # noqa
-
 print(cool_banner)
