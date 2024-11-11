@@ -6,6 +6,7 @@ EPSILON_DECAY = 0.999
 NUM_EPISODES = 100
 MAX_STEPS_PER_EPISODE = 1000
 ACTIONS = ["forward", "turn_left", "turn_right"]
+WALLS_TO_REMOVE = 3
 
 [default.logging]
 level = "INFO"

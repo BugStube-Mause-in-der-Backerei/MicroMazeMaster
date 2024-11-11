@@ -2,6 +2,7 @@ import json
 import random
 from collections import deque
 from PIL import Image, ImageDraw
+from micromazemaster import settings
 
 class Cell:
     def __init__(self):
@@ -31,22 +32,25 @@ class Wall:
         return self.start_position, self.end_position
 
 class Maze:
-    def __init__(self, width, height, seed):
+    def __init__(self, width, height, seed, missing_walls=settings.WALLS_TO_REMOVE, generation=True):
         self.seed = seed
         self.width = width
         self.height = height
+        self.missing_walls = missing_walls
         self.walls = []
-        self.generate_maze()
+        if generation:
+            self.__generate_maze()
 
     def to_dict(self):
         return {
             'seed': self.seed,
             'width': self.width,
             'height': self.height,
+            'missing_walls': self.missing_walls,
             'walls': [wall.to_dict() for wall in self.walls]
         }
 
-    def generate_maze(self):
+    def __generate_maze(self):
         random.seed(self.seed)
 
         # Initialize map and visited list
@@ -127,13 +131,20 @@ class Maze:
             if in_wall:
                 self.walls.append(Wall(x + 1, start_y, x + 1, self.height))
 
+        # Remove some walls
+        # Check if the number of walls is bigger than the number of walls to remove
+        if len(self.walls) > self.missing_walls:
+            indices_to_remove = random.sample(range(len(self.walls)), self.missing_walls)
+            for wall in sorted(indices_to_remove, reverse=True):
+                self.walls.pop(wall)
+
         # Outer boundary walls
         self.walls.append(Wall(0, 0, self.width, 0))  # top
         self.walls.append(Wall(self.width, 0, self.width, self.height))  # right
         self.walls.append(Wall(self.width, self.height, 0, self.height))  # bottom
         self.walls.append(Wall(0, self.height, 0, 0))
 
-    def generate_image(self, cell_size=20):
+    def __generate_image(self, cell_size=20):
         image = Image.new('1', (self.width * cell_size + 1, self.height * cell_size + 1))
 
         draw = ImageDraw.Draw(image)
@@ -146,11 +157,11 @@ class Maze:
         return image
 
     def show(self, cell_size=20):
-        image = self.generate_image(cell_size)
+        image = self.__generate_image(cell_size)
         image.show()
 
     def export_as_png(self, path, cell_size=20):
-        image = self.generate_image(cell_size)
+        image = self.__generate_image(cell_size)
         image.save(path, "PNG")
 
     def export_as_json(self, path):
@@ -165,7 +176,7 @@ class Maze:
         try:
             with open(path, 'r') as file:
                 data = json.load(file)
-                maze = cls(data['width'], data['height'], data['seed'])
+                maze = cls(data['width'], data['height'], data['seed'], data['missing_walls'], generation=False)
                 maze.walls = [Wall.from_dict(wall_data) for wall_data in data['walls']]
                 return maze
         except Exception as e:
