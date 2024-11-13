@@ -1,5 +1,19 @@
+import torch
+import torch.nn as nn
 from micromazemaster.utils.logging import logger
 from onnx2tf import convert
+
+
+def convert_pytorch_to_onnx(model: nn.Module, input_tensor: torch.Tensor, output_onnx_file_path: str):
+
+    # Set the model to evaluation mode
+    model.eval()
+
+    onnx_program = torch.onnx.dynamo_export(model, input_tensor)
+
+    onnx_program.save(output_onnx_file_path)
+
+    logger.info(f"Converted pytorch to onnx: {output_onnx_file_path}")
 
 
 def convert_onnx_to_tflite(input_onnx_file_path: str, output_folder_path: str):
