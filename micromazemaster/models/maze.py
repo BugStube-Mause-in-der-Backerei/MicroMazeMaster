@@ -1,9 +1,11 @@
 import json
 import random
 from collections import deque
-from micromazemaster.utils.logging import logger
+
 from PIL import Image, ImageDraw
+
 from micromazemaster.utils.config import settings
+from micromazemaster.utils.logging import logger
 
 
 class Cell:
@@ -48,7 +50,7 @@ class Maze:
             "width": self.width,
             "height": self.height,
             "missing_walls": self.missing_walls,
-            "walls": [wall.to_dict() for wall in self.walls]
+            "walls": [wall.to_dict() for wall in self.walls],
         }
 
     def __generate_maze(self):

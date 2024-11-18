@@ -1,4 +1,5 @@
 import typer
+
 from micromazemaster.utils.config import settings
 
 micromazemaster_cli = typer.Typer(

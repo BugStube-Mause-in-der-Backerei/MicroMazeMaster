@@ -1,4 +1,5 @@
 import numpy as np
+
 from micromazemaster.utils.config import settings
 from micromazemaster.utils.qlearning.helper import (
     plot_perceived_walls,
