@@ -6,7 +6,13 @@ from PIL import Image, ImageDraw
 
 from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
+from enum import Enum
 
+class Orientation(Enum):
+    NORTH = 0
+    EAST = 1
+    SOUTH = 2
+    WEST = 3
 
 class Cell:
     def __init__(self):
@@ -175,6 +181,47 @@ class Maze:
                 json.dump(self.to_dict(), file)
         except Exception as e:
             logger.error(f"Error writing to file: {e}")
+
+    def is_valid_move(self, position, orientation):
+        x, y = position[0], position[1]
+
+        match orientation:
+            case Orientation.NORTH:
+                if y > 0:
+                    return not any(
+                        wall.start_position == (x, y) and wall.end_position == (x, y - 1) or
+                        wall.start_position == (x, y - 1) and wall.end_position == (x, y)
+                        for wall in self.walls
+                    )
+                return False
+
+            case Orientation.SOUTH:
+                if y < self.height - 1:
+                    return not any(
+                        wall.start_position == (x, y + 1) and wall.end_position == (x, y) or
+                        wall.start_position == (x, y) and wall.end_position == (x, y + 1)
+                        for wall in self.walls
+                    )
+                return False
+
+            case Orientation.EAST:
+                if x < self.width - 1:
+                    return not any(
+                        wall.start_position == (x + 1, y) and wall.end_position == (x, y) or
+                        wall.start_position == (x, y) and wall.end_position == (x + 1, y)
+                        for wall in self.walls
+                    )
+                return False
+
+            case Orientation.WEST:
+                if x > 0:
+                    return not any(
+                        wall.start_position == (x, y) and wall.end_position == (x - 1, y) or
+                        wall.start_position == (x - 1, y) and wall.end_position == (x, y)
+                        for wall in self.walls
+                    )
+                return False
+        return False
 
     @classmethod
     def from_json(cls, path):
