@@ -10,10 +10,11 @@ from micromazemaster.utils.qlearning.helper import (
 
 
 class Qlearning:
-    def __init__(self, maze, start_position, goal_position):
+    def __init__(self, maze, start_position, goal_position, close_figure=False):
         self.maze = maze
         self.start_position = start_position
         self.goal_position = goal_position
+        self.close_figure = close_figure
 
     def run(self):
         maze_size = (self.maze.width, self.maze.height)
@@ -60,6 +61,7 @@ class Qlearning:
             start_position=self.start_position,
             goal_position=self.goal_position,
             maze_size=maze_size,
+            close_figure=self.close_figure,
         )
 
         plot_training_progress(episode_rewards=episode_rewards, episode_steps=episode_steps)

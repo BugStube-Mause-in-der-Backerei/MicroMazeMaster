@@ -192,7 +192,7 @@ def get_reward(position, goal, hit_wall, prev_positions):
     return distance_reward
 
 
-def plot_perceived_walls(walls, perceived_walls, path, start_position, goal_position, maze_size):
+def plot_perceived_walls(walls, perceived_walls, path, start_position, goal_position, maze_size, close_figure=False):
     fig, ax = plt.subplots(figsize=maze_size)
 
     for wall in walls:
@@ -215,6 +215,9 @@ def plot_perceived_walls(walls, perceived_walls, path, start_position, goal_posi
 
     ax.legend()
     ax.set_title("Maze with Perceived Walls")
+
+    if close_figure:
+        plt.close(fig)
 
     return fig
 
