@@ -2,6 +2,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
 

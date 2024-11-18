@@ -1,6 +1,7 @@
 import random
 
 import customtkinter as ctk
+
 from micromazemaster.models.maze import Maze
 from micromazemaster.utils.logging import logger
 from micromazemaster.utils.qlearning import Qlearning

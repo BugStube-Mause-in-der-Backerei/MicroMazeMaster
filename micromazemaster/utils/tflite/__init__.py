@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from micromazemaster.utils.logging import logger
 from onnx2tf import convert
+
+from micromazemaster.utils.logging import logger
 
 
 def convert_pytorch_to_onnx(model: nn.Module, input_tensor: torch.Tensor, output_onnx_file_path: str):

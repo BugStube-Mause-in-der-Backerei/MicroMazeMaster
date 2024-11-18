@@ -2,8 +2,9 @@ import sys
 
 from dynaconf import Dynaconf
 from dynaconf.vendor.box import BoxKeyError
-from micromazemaster.utils.logging import logger
 from rich import print
+
+from micromazemaster.utils.logging import logger
 
 try:
     settings = Dynaconf(

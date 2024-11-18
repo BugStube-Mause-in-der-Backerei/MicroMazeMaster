@@ -10,11 +10,13 @@ poetry install --with-dev
 ## Starting the app
 
 CLI
+
 ```bash
 poetry run micromazemaster
 ```
 
 GUI
+
 ```bash
 poetry run micromazemaster_gui
 ```
@@ -34,4 +36,3 @@ Under System Variables, click New.
 ```bash
 brew install python-tk@3.12
 ```
-
