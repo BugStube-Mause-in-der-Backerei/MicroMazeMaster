@@ -191,8 +191,8 @@ class Maze:
 
         for wall in self.walls:
             line = (
-                (wall.start_position[0] * cell_size, wall.start_position[1] * cell_size),
-                (wall.end_position[0] * cell_size, wall.end_position[1] * cell_size),
+                (wall.start_position[0] * cell_size, image.height - wall.start_position[1] * cell_size),
+                (wall.end_position[0] * cell_size, image.height - wall.end_position[1] * cell_size),
             )
             draw.line(line, fill=1)
 
