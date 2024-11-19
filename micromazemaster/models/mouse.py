@@ -1,5 +1,6 @@
 from micromazemaster.models.maze import Orientation
 
+
 class Mouse:
     def __init__(self, x, y, orientation, maze):
         self.position = (x, y)
