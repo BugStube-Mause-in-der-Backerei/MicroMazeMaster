@@ -1,18 +1,23 @@
 import json
 import random
 from collections import deque
+from enum import Enum
 
+import matplotlib.pyplot as plt
+import networkx as nx
 from PIL import Image, ImageDraw
+from shapely.geometry import LineString
 
 from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
-from enum import Enum
+
 
 class Orientation(Enum):
     NORTH = 0
     EAST = 1
     SOUTH = 2
     WEST = 3
+
 
 class Cell:
     def __init__(self):
@@ -47,6 +52,8 @@ class Maze:
         self.height = height
         self.missing_walls = missing_walls
         self.walls = []
+        self.shapely_walls = []
+        self.graph = nx.Graph()
         if generation:
             self.__generate_maze()
 
@@ -153,6 +160,30 @@ class Maze:
         self.walls.append(Wall(self.width, self.height, 0, self.height))  # bottom
         self.walls.append(Wall(0, self.height, 0, 0))
 
+        # Convert walls to shapely objects
+        self.shapely_walls = [LineString(wall.get_positions()) for wall in self.walls]
+        self.__generate_graph()
+
+    def __generate_graph(self):
+        for x in range(self.width):
+            for y in range(self.height):
+                self.graph.add_node((x + 0.5, y + 0.5))
+
+        for x in range(self.width):
+            for y in range(self.height):
+                current_node = (x + 0.5, y + 0.5)
+                neighbors = [
+                    (x + 0.5, y + 1.5),  # North
+                    (x + 1.5, y + 0.5),  # East
+                    (x + 0.5, y - 0.5),  # South
+                    (x - 0.5, y + 0.5),  # West
+                ]
+                for neighbor in neighbors:
+                    if 0 <= neighbor[0] < self.width and 0 <= neighbor[1] < self.height:
+                        line = LineString([current_node, neighbor])
+                        if not any(line.intersects(wall) for wall in self.shapely_walls):
+                            self.graph.add_edge(current_node, neighbor, weight=1)
+
     def __generate_image(self, cell_size=20):
         image = Image.new("1", (self.width * cell_size + 1, self.height * cell_size + 1))
 
@@ -171,6 +202,15 @@ class Maze:
         image = self.__generate_image(cell_size)
         image.show()
 
+    def plot(self) -> tuple[plt.Figure, plt.Axes]:
+        fig = plt.figure(figsize=(self.width, self.height))
+        ax = fig.add_subplot(111)
+        for wall in self.shapely_walls:
+            ax.plot(*wall.xy, color="black", linewidth=5)
+        plt.axis("equal")
+        plt.axis("off")
+        return fig, ax
+
     def export_as_png(self, path, cell_size=20):
         image = self.__generate_image(cell_size)
         image.save(path, "PNG")
@@ -183,45 +223,18 @@ class Maze:
             logger.error(f"Error writing to file: {e}")
 
     def is_valid_move(self, position, orientation):
-        x, y = position[0], position[1]
 
         match orientation:
             case Orientation.NORTH:
-                if y > 0:
-                    return not any(
-                        wall.start_position == (x, y) and wall.end_position == (x, y - 1) or
-                        wall.start_position == (x, y - 1) and wall.end_position == (x, y)
-                        for wall in self.walls
-                    )
-                return False
-
-            case Orientation.SOUTH:
-                if y < self.height - 1:
-                    return not any(
-                        wall.start_position == (x, y + 1) and wall.end_position == (x, y) or
-                        wall.start_position == (x, y) and wall.end_position == (x, y + 1)
-                        for wall in self.walls
-                    )
-                return False
-
+                new_position = (position[0], position[1] + 1)
             case Orientation.EAST:
-                if x < self.width - 1:
-                    return not any(
-                        wall.start_position == (x + 1, y) and wall.end_position == (x, y) or
-                        wall.start_position == (x, y) and wall.end_position == (x + 1, y)
-                        for wall in self.walls
-                    )
-                return False
-
+                new_position = (position[0] + 1, position[1])
+            case Orientation.SOUTH:
+                new_position = (position[0], position[1] - 1)
             case Orientation.WEST:
-                if x > 0:
-                    return not any(
-                        wall.start_position == (x, y) and wall.end_position == (x - 1, y) or
-                        wall.start_position == (x - 1, y) and wall.end_position == (x, y)
-                        for wall in self.walls
-                    )
-                return False
-        return False
+                new_position = (position[0] - 1, position[1])
+
+        return new_position in nx.neighbors(self.graph, position)
 
     @classmethod
     def from_json(cls, path):
