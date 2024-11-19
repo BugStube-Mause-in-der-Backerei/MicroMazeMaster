@@ -236,6 +236,9 @@ class Maze:
 
         return new_position in nx.neighbors(self.graph, position)
 
+    def is_valid_move(self, position, new_position):
+        return new_position in nx.neighbors(self.graph, position)
+
     @classmethod
     def from_json(cls, path):
         try:

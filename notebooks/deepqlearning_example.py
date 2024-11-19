@@ -1,5 +1,7 @@
+from micromazemaster.models.maze import Maze
 import json
 import numpy as np
+from shapely.geometry import LineString
 import random
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -11,8 +13,8 @@ import torch.optim as optim
 import math
 
 # ============ PARAMETER ============ #
-MAZE_FILE_PATH = "./test_data/test2_15.json"
 MAZE_SIZE = (10, 5)
+NUM_MAZES = 20
 NUM_AGENTS = 2
 STARTING_POSITION = (0.5, 0.5)
 GOAL_POSITION = (9.5, 4.5)
@@ -26,90 +28,53 @@ GAMMA = 0.995
 EPSILON_DECAY = 0.85
 MIN_EPSILON = 0.05
 SEQUENCE_LENGTH = 4
-MAX_STEPS_PER_EPISODE = 1000
+MAX_STEPS_PER_EPISODE = 5000
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
 
-PENALTY_REVISIT = -5
-PENALTY_WALL_COLLISION = -100
-PENALTY_REPETITIVE_ACTION = -100
-PENALTY_FAILED_ACTION = -100
+PENALTY_REVISIT = -10
+PENALTY_WALL_COLLISION = -10
+PENALTY_REPETITIVE_ACTION = 0
+PENALTY_FAILED_ACTION = 0
 
-MAX_REPETITIVE_ACTIONS = 2
-DECAYING_REVISIT_FACTOR = 3
-BACKTRACK_HISTORY_LENGTH = 2
 PROXIMITY_REWARD_FACTOR = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # ============ ENVIRONMENT LOADING ============ #
-def load_mazes_from_json(filepath):
-    """Load maze data from a JSON file."""
-    with open(filepath, "r") as file:
-        mazes = json.load(file)
+def generate_mazes(seed):
+    random.seed(seed)
+    mazes = []
+    for index in range(NUM_MAZES):
+        mazes.append(Maze(MAZE_SIZE[0], MAZE_SIZE[1], seed=random.randint(1, 1000)))
     return mazes
-
 
 # ============ ENVIRONMENT CLASS ============ #
 class MazeEnv:
-    def __init__(self, maze_data, starting_position=STARTING_POSITION, goal_position=GOAL_POSITION):
-        self.width = maze_data.get("width", MAZE_SIZE[0])
-        self.height = maze_data.get("height", MAZE_SIZE[1])
+    def __init__(self, maze, starting_position=STARTING_POSITION, goal_position=GOAL_POSITION):
+        self.maze = maze
+        self.width = maze.width
+        self.height = maze.height
         self.start_position = starting_position
         self.goal_position = goal_position
-        self.walls = [frozenset({tuple(wall["start_position"]), tuple(wall["end_position"])}) for wall in
-                      maze_data["walls"]]
-        self.walls_sorted_by_x, self.walls_sorted_by_y = self.preprocess_walls(self.walls)
+        self.walls = maze.walls
+        self.shapely_walls = [LineString(wall.get_positions()) for wall in self.walls]
         self.failed_actions = defaultdict(set)  # Track failed actions at each cell
         self.reset()
-
-    def preprocess_walls(self, walls):
-        """Sort walls by coordinates for optimized wall detection."""
-        walls_as_tuples = [tuple(sorted(wall)) for wall in walls]
-        walls_sorted_by_x = sorted(walls_as_tuples,
-                                   key=lambda wall: (min(wall[0][0], wall[1][0]), min(wall[0][1], wall[1][1])))
-        walls_sorted_by_y = sorted(walls_as_tuples,
-                                   key=lambda wall: (min(wall[0][1], wall[1][1]), min(wall[0][0], wall[1][0])))
-        return walls_sorted_by_x, walls_sorted_by_y
 
     def reset(self):
         """Reset environment to the starting position and initialize visited positions and recent history."""
         self.position = self.start_position
         self.done = False
-        self.visited_positions = {self.position}  # Track visited positions
-        self.recent_positions = deque(maxlen=BACKTRACK_HISTORY_LENGTH)  # Track recent positions
+        self.visited_positions = {}  # Track visited positions
         self.failed_actions.clear()  # Clear failed actions tracking
-        self.recent_positions.append(self.position)
         return self.position
 
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
-        x, y = position
-        nx, ny = new_position
-        curr_x, curr_y = int(x), int(y)
-        next_x, next_y = int(nx), int(ny)
-
-        movement_direction = (
-            "north" if ny > y else "south" if ny < y else "east" if nx > x else "west"
-        ) if nx != x or ny != y else None
-
-        if not movement_direction:
-            return False  # No movement
-
-        relevant_walls = self.walls_sorted_by_y if movement_direction in ["north", "south"] else self.walls_sorted_by_x
-        for wall in relevant_walls:
-            (wx1, wy1), (wx2, wy2) = sorted(wall)
-            if movement_direction == "north" and wy1 == curr_y + 1 and wx1 <= curr_x < wx2:
-                return True
-            elif movement_direction == "south" and wy1 == curr_y and wx1 <= curr_x < wx2:
-                return True
-            elif movement_direction == "east" and wx1 == curr_x + 1 and wy1 <= curr_y < wy2:
-                return True
-            elif movement_direction == "west" and wx1 == curr_x and wy1 <= curr_y < wy2:
-                return True
-        return False
+        return not self.maze.is_valid_move(position, new_position)
 
     def proximity_reward(self, position):
         """Calculate proximity reward based on distance to the goal."""
@@ -131,7 +96,7 @@ class MazeEnv:
         reward = 0
 
         # Check for wall collision
-        if self.is_valid_position(new_position) and not self.hits_wall(self.position, new_position):
+        if not self.hits_wall(self.position, new_position):
             self.position = new_position
         else:
             reward += PENALTY_WALL_COLLISION  # Penalty for attempting to go through a wall
@@ -142,20 +107,19 @@ class MazeEnv:
             reward += REWARD_GOAL
             self.done = True
 
-        if self.position in self.visited_positions:
-            reward += PENALTY_REVISIT  # Penalty for revisiting
+        if self.visited_positions.get(self.position, 0) > 0:
+            reward += PENALTY_REVISIT * self.visited_positions.get(self.position) # Penalty for revisiting
 
-        if action == self.failed_actions[self.position]:
+        if action == self.failed_actions.get(self.position):
             reward += PENALTY_FAILED_ACTION
         else:
             reward += REWARD_NEW_POSITION  # Reward for new position
-            self.visited_positions.add(self.position)
+            self.visited_positions[self.position] = self.visited_positions.get(self.position, 0) + 1
 
         # Add proximity reward based on closeness to the goal
         reward += self.proximity_reward(self.position)
 
         # Update recent positions
-        self.recent_positions.append(self.position)
         return self.position, reward, self.done, action_names[action]
 
 
@@ -172,7 +136,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps):
 
     # Draw static elements (walls, start, goal)
     for wall in env.walls:
-        (x1, y1), (x2, y2) = wall
+        (x1, y1), (x2, y2) = wall.start_position, wall.end_position
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
     ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10, label="Start")
@@ -311,9 +275,9 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
 
 def train_agents_across_mazes(agents, mazes):
     """Train agents across multiple mazes."""
-    for maze_index, maze_data in enumerate(mazes):
+    for maze_index, maze in enumerate(mazes):
         print(f"\nTraining agents on maze {maze_index + 1}...")
-        best_agent = train_agents_on_maze(agents, maze_data)
+        best_agent = train_agents_on_maze(agents, maze)
         for agent in agents:
             agent.clone_from(best_agent)
 
@@ -353,7 +317,7 @@ def test_agent(agent, test_maze):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load mazes and split into training and testing sets
-ALL_MAZES = load_mazes_from_json(MAZE_FILE_PATH)
+ALL_MAZES = generate_mazes(42)
 TRAINING_MAZES = ALL_MAZES[:-1]
 TEST_MAZE = ALL_MAZES[-1]
 
