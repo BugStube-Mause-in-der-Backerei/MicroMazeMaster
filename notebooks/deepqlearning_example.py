@@ -14,7 +14,7 @@ import math
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 1
+SEED = 200
 NUM_MAZES = 100
 NUM_AGENTS = 3
 STARTING_POSITION = (0.5, 0.5)
@@ -127,7 +127,7 @@ class MazeEnv:
         return self.position, reward, self.done, action_names[action]
     
 # ============ VISUALIZATION ============ #
-def visualize_agent_run(env, positions, total_reward, total_steps):
+def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL auf ungesehenes Labyrinth"):
     # Prepare the figure and axis
     fig, ax = plt.subplots(figsize=(10, 5))
     cm_to_units = 1 / 2.54  # Conversion from cm to inches
@@ -142,8 +142,9 @@ def visualize_agent_run(env, positions, total_reward, total_steps):
         (x1, y1), (x2, y2) = wall.start_position, wall.end_position
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10, label="Start")
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10, label="Goal")
+    # Draw the path start and goal
+    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
+    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
@@ -159,7 +160,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps):
         ax.plot(x_values, y_values, color=color, linewidth=2)
 
     # Initialize the agent's position as a blue dot
-    agent_dot, = ax.plot([], [], 'bo', markersize=8, label="Agent")
+    agent_dot, = ax.plot([], [], 'bo', markersize=8)
 
     # Animation update function
     def update(frame):
@@ -172,13 +173,17 @@ def visualize_agent_run(env, positions, total_reward, total_steps):
     # Remove gridlines and axis labels
     ax.axis('off')
 
-    # Add legend and performance stats
-    ax.legend(loc="upper left", fontsize=8)
-    ax.text(0.5, -1.5, f"Steps: {total_steps}, Reward: {total_reward}", fontsize=10, transform=ax.transAxes)
+    # Add performance stats to the side legend
+    side_legend_text = f"Steps: {total_steps}\nReward: {int(total_reward)}"
+    fig.text(0.05, 0.79, side_legend_text, fontsize=10, va='center', ha='left', 
+         bbox=dict(facecolor='white', alpha=0.8), transform=fig.transFigure)
+
+    # Add caption above the plot, if provided
+    if caption:
+        fig.suptitle(caption, fontsize=12, weight='bold', y=0.95)
 
     # Show the animation
     plt.show()
-
 
 # ============ DEEP Q-NETWORK CLASS ============ #
 class DQN(nn.Module):
