@@ -14,8 +14,9 @@ import math
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-NUM_MAZES = 20
-NUM_AGENTS = 2
+SEED = 1
+NUM_MAZES = 100
+NUM_AGENTS = 3
 STARTING_POSITION = (0.5, 0.5)
 GOAL_POSITION = (9.5, 4.5)
 
@@ -25,23 +26,19 @@ HIDDEN_SIZE = 24
 TRAINING_EPISODES = 20
 LEARNING_RATE = 0.05
 GAMMA = 0.995
-EPSILON_DECAY = 0.85
-MIN_EPSILON = 0.05
-SEQUENCE_LENGTH = 4
-MAX_STEPS_PER_EPISODE = 5000
+EPSILON_DECAY = 0.995
+MIN_EPSILON = 0.1
+SEQUENCE_LENGTH = 10
+MAX_STEPS_PER_EPISODE = 500
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
 
-PENALTY_REVISIT = -10
+PENALTY_STALL = -20
+REWARD_DISTANCE_CHANGE = 10
 PENALTY_WALL_COLLISION = -10
-PENALTY_REPETITIVE_ACTION = 0
-PENALTY_FAILED_ACTION = 0
-
-PROXIMITY_REWARD_FACTOR = 0
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+PENALTY_REPETITIVE_ACTION = -50
+PENALTY_FAILED_ACTION = -100
 
 # ============ ENVIRONMENT LOADING ============ #
 def generate_mazes(seed):
@@ -75,11 +72,10 @@ class MazeEnv:
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
         return not self.maze.is_valid_move(position, new_position)
-
-    def proximity_reward(self, position):
-        """Calculate proximity reward based on distance to the goal."""
-        distance = math.sqrt((position[0] - self.goal_position[0]) ** 2 + (position[1] - self.goal_position[1]) ** 2)
-        return PROXIMITY_REWARD_FACTOR * (1 / (1 + distance))
+    
+    def distance_to_goal(self, position):
+        """Calculate the Euclidean distance to the goal."""
+        return math.sqrt((position[0] - self.goal_position[0]) ** 2 + (position[1] - self.goal_position[1]) ** 2)
 
     def is_valid_position(self, position):
         """Ensure the position is within maze boundaries."""
@@ -97,32 +93,39 @@ class MazeEnv:
 
         # Check for wall collision
         if not self.hits_wall(self.position, new_position):
+            prev_distance = self.distance_to_goal(self.position)
             self.position = new_position
+            new_distance = self.distance_to_goal(self.position)
+            
+            # Reward based on progress toward the goal
+            distance_change = prev_distance - new_distance
+            reward += REWARD_DISTANCE_CHANGE * distance_change
         else:
             reward += PENALTY_WALL_COLLISION  # Penalty for attempting to go through a wall
             self.failed_actions[self.position].add(action)  # Record failed action
+            # Penalize repeated failed actions
+            if action in self.failed_actions[self.position]:
+                reward += PENALTY_FAILED_ACTION
 
         # Determine reward based on outcome of the move
         if self.position == self.goal_position:
-            reward += REWARD_GOAL
+            reward += REWARD_GOAL - (self.visited_positions.get(self.position, 0) * 10)  # Larger reward for faster reach
             self.done = True
-
-        if self.visited_positions.get(self.position, 0) > 0:
-            reward += PENALTY_REVISIT * self.visited_positions.get(self.position) # Penalty for revisiting
-
-        if action == self.failed_actions.get(self.position):
-            reward += PENALTY_FAILED_ACTION
         else:
-            reward += REWARD_NEW_POSITION  # Reward for new position
-            self.visited_positions[self.position] = self.visited_positions.get(self.position, 0) + 1
+            # Penalize repeating the same step (stuck behavior)
+            if action in self.failed_actions[self.position]:
+                reward += PENALTY_REPETITIVE_ACTION
+            
+            # Penalize stalling or revisiting recent positions
+            if self.visited_positions.get(self.position, 0) > 2:
+                reward += PENALTY_STALL
+            else:
+                # Encourage exploring new positions
+                reward += REWARD_NEW_POSITION
+                self.visited_positions[self.position] = self.visited_positions.get(self.position, 0) + 1
 
-        # Add proximity reward based on closeness to the goal
-        reward += self.proximity_reward(self.position)
-
-        # Update recent positions
         return self.position, reward, self.done, action_names[action]
-
-
+    
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_reward, total_steps):
     # Prepare the figure and axis
@@ -164,7 +167,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps):
         return agent_dot,
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=100, blit=True)
+    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
 
     # Remove gridlines and axis labels
     ax.axis('off')
@@ -225,19 +228,43 @@ class Agent:
         """Train model on randomly sampled experiences from memory."""
         if len(self.memory) < BATCH_SIZE:
             return
+
+        # Sample a random minibatch from the replay memory
         minibatch = random.sample(self.memory, BATCH_SIZE)
-        for state_seq, action, reward, next_state_seq, done in minibatch:
-            state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
-            next_state_seq = torch.FloatTensor(next_state_seq).unsqueeze(0).to(device)
-            target = reward + GAMMA * torch.max(self.model(next_state_seq)).item() * (1 - done)
-            target_f = self.model(state_seq).squeeze()
-            target_f[action] = target
-            loss = self.loss_fn(self.model(state_seq).squeeze(), target_f)
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+
+        # Prepare arrays to batch process states, actions, rewards, etc.
+        state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
+        action_batch = torch.LongTensor([experience[1] for experience in minibatch]).to(device)
+        reward_batch = torch.FloatTensor([experience[2] for experience in minibatch]).to(device)
+        next_state_batch = torch.FloatTensor([experience[3] for experience in minibatch]).to(device)
+        done_batch = torch.FloatTensor([float(experience[4]) for experience in minibatch]).to(device)
+
+        # Compute Q-values for current states
+        q_values = self.model(state_batch)  # Shape: [BATCH_SIZE, action_size]
+
+        # Compute target Q-values for next states
+        with torch.no_grad():
+            next_q_values = self.model(next_state_batch)
+            max_next_q_values = torch.max(next_q_values, dim=1)[0]  # Take max over actions
+
+        # Calculate target for each sample
+        targets = reward_batch + GAMMA * max_next_q_values * (1 - done_batch)  # Zero out next Q for terminal states
+
+        # Use advanced indexing to update only the Q-values corresponding to the chosen actions
+        q_values_for_actions = q_values.gather(1, action_batch.unsqueeze(1)).squeeze()
+
+        # Calculate loss
+        loss = self.loss_fn(q_values_for_actions, targets)
+
+        # Backpropagation
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Decay epsilon (for exploration vs. exploitation balance)
         if self.epsilon > MIN_EPSILON:
             self.epsilon *= EPSILON_DECAY
+
 
     def clone_from(self, best_agent):
         """Copy the model and optimizer state from the best agent."""
@@ -317,7 +344,7 @@ def test_agent(agent, test_maze):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load mazes and split into training and testing sets
-ALL_MAZES = generate_mazes(42)
+ALL_MAZES = generate_mazes(SEED)
 TRAINING_MAZES = ALL_MAZES[:-1]
 TEST_MAZE = ALL_MAZES[-1]
 
