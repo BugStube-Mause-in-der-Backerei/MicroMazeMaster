@@ -15,13 +15,11 @@ from math import isclose
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 20
+SEED = 25
 ACTION_SEED = 5
 NUM_MAZES = 100
 NUM_AGENTS = 3
 NUM_TEST_RUNS = 100
-STARTING_POSITION = (0.5, 0.5)
-GOAL_POSITION = (9.5, 4.5)
 
 BATCH_SIZE = 32
 HIDDEN_SIZE = 24
@@ -58,32 +56,17 @@ def generate_mazes(seed):
 
 # ============ ENVIRONMENT CLASS ============ #
 class MazeEnv:
-    def __init__(self, maze, starting_position=STARTING_POSITION):
+    def __init__(self, maze):
         self.maze = maze
         self.width = maze.width
         self.height = maze.height
-        self.start_position = starting_position
-        self.goal_position = self._generate_random_goal(maze)  # Goal tied to the maze
         self.walls = maze.walls
         self.failed_actions = defaultdict(set)  # Track failed actions at each cell
         self.reset()
 
-    def _generate_random_goal(self, maze):
-        """Generate a random goal position tied to the maze on half coordinates."""
-        action_random.seed(hash(str(maze)))  # Use the maze's structure as the random seed
-        while True:
-            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
-            x = action_random.randint(0, self.width - 1) + 0.5
-            y = action_random.randint(0, self.height - 1) + 0.5
-            
-            # Ensure the goal is not the start position and is within valid bounds
-            if (x, y) != self.start_position and self.is_valid_position((x, y)):
-                print(f"Generated goal for maze: ({x}, {y})")  # Debugging output
-                return (x, y)
-
     def reset(self):
         """Reset environment to the starting position and initialize visited positions and recent history."""
-        self.position = self.start_position
+        self.position = self.maze.start
         self.done = False
         self.visited_positions = {}  # Track visited positions
         self.failed_actions.clear()  # Clear failed actions tracking
@@ -95,7 +78,7 @@ class MazeEnv:
     
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
-        return math.sqrt((position[0] - self.goal_position[0]) ** 2 + (position[1] - self.goal_position[1]) ** 2)
+        return math.sqrt((position[0] - self.maze.goal[0]) ** 2 + (position[1] - self.maze.goal[1]) ** 2)
 
     def is_valid_position(self, position):
         """Ensure the position is within maze boundaries."""
@@ -128,7 +111,7 @@ class MazeEnv:
                 reward += PENALTY_FAILED_ACTION
 
         # Check if the agent has reached the goal
-        if self.position == self.goal_position:
+        if self.position == self.maze.goal:
             reward += REWARD_GOAL - (self.visited_positions.get(self.position, 0) * 10)  # Larger reward for faster reach
             self.done = True
         else:
@@ -148,7 +131,7 @@ class MazeEnv:
 
     def _is_goal_reached(self):
         """Check if the agent has reached the goal within a small tolerance."""
-        return isclose(self.position[0], self.goal_position[0], abs_tol=1e-6) and isclose(self.position[1], self.goal_position[1], abs_tol=1e-6)
+        return isclose(self.position[0], self.maze.goal[0], abs_tol=1e-6) and isclose(self.position[1], self.maze.goal[1], abs_tol=1e-6)
 
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL auf ungesehenes Labyrinth"):
@@ -167,8 +150,8 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.maze.start[0], env.maze.start[1], 'go', markersize=10)
+    ax.plot(env.maze.goal[0], env.maze.goal[1], 'ro', markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
@@ -238,8 +221,8 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.maze.start[0], env.maze.start[1], 'go', markersize=10)
+    ax.plot(env.maze.goal[0], env.maze.goal[1], 'ro', markersize=10)
 
     # Draw the heatmap-style paths
     for positions in all_positions:
@@ -254,7 +237,7 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
 
     # Add a legend at the top-left corner with aggregated statistics
     total_runs = len(all_positions)
-    goals_reached = sum(1 for positions in all_positions if positions[-1] == env.goal_position)
+    goals_reached = sum(1 for positions in all_positions if positions[-1] == env.maze.goal)
     goals_missed = total_runs - goals_reached
     avg_steps = np.mean([len(positions) for positions in all_positions])
 
