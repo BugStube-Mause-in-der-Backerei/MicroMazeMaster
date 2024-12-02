@@ -54,6 +54,8 @@ class Maze:
         self.walls = []
         self.shapely_walls = []
         self.graph = nx.Graph()
+        self.goal = ()
+        self.start = (0.5, 0.5)
         if generation:
             self.__generate_maze()
 
@@ -68,6 +70,16 @@ class Maze:
 
     def __generate_maze(self):
         random.seed(self.seed)
+
+        while True:
+            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
+            x = random.randint(0, self.width - 1) + 0.5
+            y = random.randint(0, self.height - 1) + 0.5
+
+            # Ensure the goal is not the start position
+            if (x, y) != self.start:
+                self.goal = (x, y)
+                break
 
         # Initialize map and visited list
         map_cells = [Cell() for _ in range(self.width * self.height)]
