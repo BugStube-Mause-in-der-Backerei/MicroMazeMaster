@@ -15,6 +15,7 @@ import math
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
 SEED = 20
+ACTION_SEED = 5
 NUM_MAZES = 100
 NUM_AGENTS = 3
 NUM_TEST_RUNS = 100
@@ -34,14 +35,18 @@ MAX_STEPS_PER_EPISODE = 300
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
+REWARD_DISTANCE_CHANGE = 10
 
 PENALTY_STALL = -20
-REWARD_DISTANCE_CHANGE = 10
 PENALTY_WALL_COLLISION = -10
 PENALTY_REPETITIVE_ACTION = -50
 PENALTY_FAILED_ACTION = -100
 
 # ============ ENVIRONMENT LOADING ============ #
+
+action_random = random.Random(ACTION_SEED)
+torch.manual_seed(1)
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
@@ -287,11 +292,11 @@ class Agent:
 
     def act(self, state_seq, env):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
-        if random.random() <= self.epsilon:
+        if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
             if not available_actions:  # If all actions failed, allow any
                 available_actions = list(range(self.action_size))
-            return random.choice(available_actions)
+            return action_random.choice(available_actions)
 
         state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -304,7 +309,7 @@ class Agent:
             return
 
         # Sample a random minibatch from the replay memory
-        minibatch = random.sample(self.memory, BATCH_SIZE)
+        minibatch = action_random.sample(self.memory, BATCH_SIZE)
 
         # Prepare arrays to batch process states, actions, rewards, etc.
         state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)

@@ -16,6 +16,7 @@ from math import isclose
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
 SEED = 20
+ACTION_SEED = 5
 NUM_MAZES = 100
 NUM_AGENTS = 3
 NUM_TEST_RUNS = 100
@@ -43,6 +44,10 @@ PENALTY_REPETITIVE_ACTION = -50
 PENALTY_FAILED_ACTION = -100
 
 # ============ ENVIRONMENT LOADING ============ #
+
+action_random = random.Random(ACTION_SEED)
+torch.manual_seed(1)
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
@@ -65,11 +70,11 @@ class MazeEnv:
 
     def _generate_random_goal(self, maze):
         """Generate a random goal position tied to the maze on half coordinates."""
-        random.seed(hash(str(maze)))  # Use the maze's structure as the random seed
+        action_random.seed(hash(str(maze)))  # Use the maze's structure as the random seed
         while True:
             # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
-            x = random.randint(0, self.width - 1) + 0.5
-            y = random.randint(0, self.height - 1) + 0.5
+            x = action_random.randint(0, self.width - 1) + 0.5
+            y = action_random.randint(0, self.height - 1) + 0.5
             
             # Ensure the goal is not the start position and is within valid bounds
             if (x, y) != self.start_position and self.is_valid_position((x, y)):
@@ -204,7 +209,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
     # Show the animation
     plt.show()
 
-def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth"):
+def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth mit random Ziel"):
     # Flatten all positions into a single list
     aggregated_positions = [pos for positions in all_positions for pos in positions]
     position_counts = Counter(aggregated_positions)
@@ -304,11 +309,11 @@ class Agent:
 
     def act(self, state_seq, env):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
-        if random.random() <= self.epsilon:
+        if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
             if not available_actions:  # If all actions failed, allow any
                 available_actions = list(range(self.action_size))
-            return random.choice(available_actions)
+            return action_random.choice(available_actions)
 
         state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -321,7 +326,7 @@ class Agent:
             return
 
         # Sample a random minibatch from the replay memory
-        minibatch = random.sample(self.memory, BATCH_SIZE)
+        minibatch = action_random.sample(self.memory, BATCH_SIZE)
 
         # Prepare arrays to batch process states, actions, rewards, etc.
         state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
