@@ -15,31 +15,31 @@ from math import isclose
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 25
-ACTION_SEED = 5
-NUM_MAZES = 100
+SEED = 13
+ACTION_SEED = 10
+NUM_MAZES = 301
 NUM_AGENTS = 3
-NUM_TEST_RUNS = 100
+NUM_TEST_RUNS = 30
 
 BATCH_SIZE = 32
 HIDDEN_SIZE = 24
 
-TRAINING_EPISODES = 20
-LEARNING_RATE = 0.05
-GAMMA = 0.995
+TRAINING_EPISODES = 100
+LEARNING_RATE = 0.1
+GAMMA = 0.8
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 300
+MAX_STEPS_PER_EPISODE = 200
 
 REWARD_GOAL = 100000
-REWARD_NEW_POSITION = 100
+REWARD_NEW_POSITION = 0
+REWARD_DISTANCE_CHANGE = 100
 
-PENALTY_STALL = -20
-REWARD_DISTANCE_CHANGE = 10
+PENALTY_STALL = -10
 PENALTY_WALL_COLLISION = -10
-PENALTY_REPETITIVE_ACTION = -50
-PENALTY_FAILED_ACTION = -100
+PENALTY_REPETITIVE_ACTION = -10
+PENALTY_FAILED_ACTION = -10
 
 # ============ ENVIRONMENT LOADING ============ #
 
@@ -370,7 +370,7 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        #print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
@@ -380,7 +380,7 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
 def train_agents_across_mazes(agents, mazes):
     """Train agents across multiple mazes."""
     for maze_index, maze in enumerate(mazes):
-        print(f"\nTraining agents on maze {maze_index + 1}...")
+        #print(f"\nTraining agents on maze {maze_index + 1}...")
         best_agent = train_agents_on_maze(agents, maze)
         for agent in agents:
             agent.clone_from(best_agent)
@@ -416,7 +416,7 @@ def test_agent(agent, test_maze):
     total_reward = 0  # Track total reward during testing
     positions = [env.position]  # List to store positions for animation
 
-    print("Agent's movements on the test maze:")
+    #print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
         next_state, reward, done, action_name = env.step(action)
@@ -426,7 +426,7 @@ def test_agent(agent, test_maze):
         total_reward += reward  # Update total reward
 
         # Print the current position, action, reward, and whether the goal was reached
-        print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
+        # print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
 
         if done:
             print(f"Goal reached in {step + 1} steps.")
