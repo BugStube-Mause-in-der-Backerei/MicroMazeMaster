@@ -79,3 +79,18 @@ class Mouse:
         self.distance[0], _ = self.TOFSensorLeft.get_distance(self.maze)
         self.distance[1], _ = self.TOFSensorCenter.get_distance(self.maze)
         self.distance[2], _ = self.TOFSensorRight.get_distance(self.maze)
+
+    def move_backward(self):
+        if self.maze.is_valid_move_orientation(self.position, self.orientation.subtract(2)):
+            match self.orientation:
+                case Orientation.NORTH:
+                    self.position = (self.position[0], self.position[1] - 1)
+                case Orientation.EAST:
+                    self.position = (self.position[0] - 1, self.position[1])
+                case Orientation.SOUTH:
+                    self.position = (self.position[0], self.position[1] + 1)
+                case Orientation.WEST:
+                    self.position = (self.position[0] + 1, self.position[1])
+            return True
+        else:
+            return False
