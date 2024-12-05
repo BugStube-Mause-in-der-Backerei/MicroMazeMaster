@@ -46,7 +46,7 @@ class MazeEnv:
         return self.position
 
     def hits_wall(self, position, new_position):
-        return not self.maze.is_valid_move(position, new_position)
+        return not self.maze.is_valid_move_position(position, new_position)
     
     def step(self, action):
         moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right

@@ -1,7 +1,7 @@
 import json
 import random
 from collections import deque
-from enum import Enum
+from enum import IntEnum
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -12,11 +12,17 @@ from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
 
 
-class Orientation(Enum):
+class Orientation(IntEnum):
     NORTH = 0
     EAST = 1
     SOUTH = 2
     WEST = 3
+
+    def add(self, value):
+        return Orientation((self.value + value) % 4)
+
+    def subtract(self, value):
+        return Orientation((self.value - value) % 4)
 
 
 class Cell:
@@ -234,8 +240,7 @@ class Maze:
         except Exception as e:
             logger.error(f"Error writing to file: {e}")
 
-    def is_valid_move(self, position, orientation):
-
+    def is_valid_move_orientation(self, position, orientation):
         match orientation:
             case Orientation.NORTH:
                 new_position = (position[0], position[1] + 1)
@@ -248,7 +253,7 @@ class Maze:
 
         return new_position in nx.neighbors(self.graph, position)
 
-    def is_valid_move(self, position, new_position):
+    def is_valid_move_position(self, position, new_position):
         return new_position in nx.neighbors(self.graph, position)
 
     @classmethod

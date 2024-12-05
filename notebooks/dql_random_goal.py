@@ -74,7 +74,7 @@ class MazeEnv:
 
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall."""
-        return not self.maze.is_valid_move(position, new_position)
+        return not self.maze.is_valid_move_position(position, new_position)
     
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
