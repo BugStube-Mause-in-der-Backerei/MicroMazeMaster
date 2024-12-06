@@ -1,4 +1,9 @@
 from micromazemaster.models.maze import Orientation
+from micromazemaster.utils.sensors.tof import TOFSensor
+from micromazemaster.utils.config import settings
+
+cell_size = settings.CELL_SIZE
+offset_angel = settings.OFFSET_ANGLE
 
 
 class Mouse:
@@ -6,6 +11,11 @@ class Mouse:
         self.position = (x, y)
         self.orientation = orientation
         self.maze = maze
+        self.distance = [float("inf"), float("inf"), float("inf")]
+        # TOF sensor needs coordinates in units
+        self.TOFSensorLeft = TOFSensor(self.position[0]*cell_size, self.position[1]*cell_size, (self.orientation.value-1) * 90 + offset_angel)
+        self.TOFSensorCenter = TOFSensor(self.position[0]*cell_size, self.position[1]*cell_size, (self.orientation.value-1) * 90)
+        self.TOFSensorRight = TOFSensor(self.position[0]*cell_size, self.position[1]*cell_size, (self.orientation.value-1) * 90 - offset_angel)
 
     def move_forward(self):
         if self.maze.is_valid_move(self.position, self.orientation):
@@ -43,3 +53,8 @@ class Mouse:
                 self.orientation = Orientation.WEST
             case Orientation.WEST:
                 self.orientation = Orientation.NORTH
+
+    def update_sensor(self):
+        self.distance[0], _ = self.TOFSensorLeft.get_distance(self.maze)
+        self.distance[1], _ = self.TOFSensorCenter.get_distance(self.maze)
+        self.distance[2], _ = self.TOFSensorRight.get_distance(self.maze)

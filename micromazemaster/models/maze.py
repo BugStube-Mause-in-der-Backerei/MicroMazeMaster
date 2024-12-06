@@ -5,6 +5,7 @@ from enum import Enum
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from PIL import Image, ImageDraw
 from shapely.geometry import LineString
 
@@ -58,6 +59,7 @@ class Maze:
         self.start = (0.5, 0.5)
         if generation:
             self.__generate_maze()
+        self.map = self.__generate_map()
 
     def to_dict(self):
         return {
@@ -203,8 +205,8 @@ class Maze:
 
         for wall in self.walls:
             line = (
-                (wall.start_position[0] * cell_size, image.height - wall.start_position[1] * cell_size),
-                (wall.end_position[0] * cell_size, image.height - wall.end_position[1] * cell_size),
+                (wall.start_position[0] * cell_size, image.height - wall.start_position[1] * cell_size - 1),
+                (wall.end_position[0] * cell_size, image.height - wall.end_position[1] * cell_size - 1),
             )
             draw.line(line, fill=1)
 
@@ -262,3 +264,7 @@ class Maze:
         except Exception as e:
             logger.error(f"Error reading from file: {e}")
             return None
+
+    def __generate_map(self, cell_size=settings.CELL_SIZE-1):
+        arr = np.array(self.__generate_image(cell_size), dtype=np.uint8)
+        return arr[::-1]
