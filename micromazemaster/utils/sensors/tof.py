@@ -1,19 +1,19 @@
 import math
-
-from shapely.geometry import LineString, Point
-
+import numpy as np
 from micromazemaster.models.maze import Maze
+from typing import Optional, Tuple
 from micromazemaster.utils.config import settings
 
+step_size = settings.STEP_SIZE
+max_distance = settings.MAX_DISTANCE
 
 class TOFSensor:
-    def __init__(self, x, y, angle, max_distance):
+    def __init__(self, x, y, angle):
         self.x = x
         self.y = y
         self.angle = angle
-        self.max_distance = max_distance
 
-    def get_distance(self, maze: Maze) -> tuple[float | None, Point | None]:
+    def get_distance(self, maze: Maze) -> Tuple[Optional[float], Optional[Tuple[float, float]]]:
         """Returns the distance (in mm) to the nearest wall in the direction of the sensor.
 
         Args:
@@ -23,29 +23,18 @@ class TOFSensor:
             - Tuple[float | None, Point | None]: The distance to the nearest wall in mm and the intersection point.
         """
 
-        sensor_pos = Point(self.x, self.y)
-        ray_end = Point(
-            self.x + self.max_distance * math.cos(math.radians(self.angle)),
-            self.y + self.max_distance * math.sin(math.radians(self.angle)),
-        )
+        ray_dx = math.cos(math.radians(self.angle))
+        ray_dy = math.sin(math.radians(self.angle))
 
-        ray = LineString([sensor_pos, ray_end])
+        for distance in np.arange(0, max_distance, step_size):
+            ray_x = self.x + distance * ray_dx
+            ray_y = self.y + distance * ray_dy
 
-        min_distance = float("inf")
-        min_distance_point = None
+            grid_x = int(ray_x)
+            grid_y = int(ray_y)
 
-        for wall in maze.shapely_walls:
-            if ray.intersects(wall):
-                intersection = ray.intersection(wall)
-                if isinstance(intersection, Point):
-                    distance = sensor_pos.distance(intersection)
-                    min_distance = min(min_distance, distance)
-                    if distance == min_distance:
-                        min_distance_point = intersection
+            if maze.map[grid_y, grid_x] == 1:
+                distance = math.sqrt((ray_x - self.x) ** 2 + (ray_y - self.y) ** 2)
+                return distance, (ray_x, ray_y)
 
-        if min_distance == float("inf"):
-            return None, None
-
-        min_distance *= settings.GRID_TO_MM
-
-        return min_distance, min_distance_point
+        return None, None

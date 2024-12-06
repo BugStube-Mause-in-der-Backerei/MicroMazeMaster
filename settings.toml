@@ -8,6 +8,10 @@ MAX_STEPS_PER_EPISODE = 1000
 ACTIONS = ["forward", "turn_left", "turn_right"]
 WALLS_TO_REMOVE = 3
 GRID_TO_MM = 1675.0
+CELL_SIZE = 18
+STEP_SIZE = 0.5
+MAX_DISTANCE = 200 # bigger than max(cell_size * width, cell_size * height)
+OFFSET_ANGLE = 15
 
 [default.logging]
 level = "INFO"
