@@ -15,7 +15,8 @@ import math
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
 SEED = 20
-NUM_MAZES = 100
+ACTION_SEED = 5
+NUM_MAZES = 20
 NUM_AGENTS = 3
 NUM_TEST_RUNS = 100
 STARTING_POSITION = (0.5, 0.5)
@@ -24,24 +25,28 @@ GOAL_POSITION = (9.5, 4.5)
 BATCH_SIZE = 32
 HIDDEN_SIZE = 24
 
-TRAINING_EPISODES = 20
-LEARNING_RATE = 0.05
-GAMMA = 0.995
+TRAINING_EPISODES = 10
+LEARNING_RATE = 0.01
+GAMMA = 1
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 300
+MAX_STEPS_PER_EPISODE = 1500
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
+REWARD_DISTANCE_CHANGE = 10
 
 PENALTY_STALL = -20
-REWARD_DISTANCE_CHANGE = 10
 PENALTY_WALL_COLLISION = -10
 PENALTY_REPETITIVE_ACTION = -50
 PENALTY_FAILED_ACTION = -100
 
 # ============ ENVIRONMENT LOADING ============ #
+
+action_random = random.Random(ACTION_SEED)
+torch.manual_seed(1)
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
@@ -287,11 +292,11 @@ class Agent:
 
     def act(self, state_seq, env):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
-        if random.random() <= self.epsilon:
+        if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
             if not available_actions:  # If all actions failed, allow any
                 available_actions = list(range(self.action_size))
-            return random.choice(available_actions)
+            return action_random.choice(available_actions)
 
         state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -304,7 +309,7 @@ class Agent:
             return
 
         # Sample a random minibatch from the replay memory
-        minibatch = random.sample(self.memory, BATCH_SIZE)
+        minibatch = action_random.sample(self.memory, BATCH_SIZE)
 
         # Prepare arrays to batch process states, actions, rewards, etc.
         state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
@@ -365,20 +370,21 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        #print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
-    print(f"Best agent selected with reward: {highest_reward}")
+    #print(f"Best agent selected with reward: {highest_reward}")
     return best_agent
 
-def train_agents_across_mazes(agents, mazes):
-    """Train agents across multiple mazes."""
-    for maze_index, maze in enumerate(mazes):
-        print(f"\nTraining agents on maze {maze_index + 1}...")
-        best_agent = train_agents_on_maze(agents, maze)
-        for agent in agents:
-            agent.clone_from(best_agent)
+def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES):
+    """Train agents across multiple mazes for a specified number of episodes."""
+    for episode in range(training_episodes):
+        for maze_index, maze in enumerate(mazes):
+            #print(f"  Training agents on maze {maze_index + 1}/{len(mazes)}...")
+            best_agent = train_agents_on_maze(agents, maze)
+            for agent in agents:
+                agent.clone_from(best_agent)
 
 def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     """Test the trained agent on the test maze multiple times and visualize the aggregated paths."""
@@ -411,7 +417,7 @@ def test_agent(agent, test_maze):
     total_reward = 0  # Track total reward during testing
     positions = [env.position]  # List to store positions for animation
 
-    print("Agent's movements on the test maze:")
+    #print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
         next_state, reward, done, action_name = env.step(action)
@@ -421,7 +427,7 @@ def test_agent(agent, test_maze):
         total_reward += reward  # Update total reward
 
         # Print the current position, action, reward, and whether the goal was reached
-        print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
+        #print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
 
         if done:
             print(f"Goal reached in {step + 1} steps.")
@@ -446,7 +452,7 @@ agents = [Agent(state_size=2, action_size=4) for _ in range(NUM_AGENTS)]
 
 # Train across mazes
 print("Training agents across mazes...")
-train_agents_across_mazes(agents, TRAINING_MAZES)
+train_agents_across_mazes(agents, TRAINING_MAZES, TRAINING_EPISODES)
 
 # Test the best agent from the last maze training
 best_agent = agents[0]  # Any agent, as they are all cloned to the best one at the end

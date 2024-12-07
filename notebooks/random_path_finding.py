@@ -9,7 +9,8 @@ from matplotlib import animation
 
 # ============ PARAMETERS ============ #
 MAZE_SIZE = (10, 5)
-SEED = 182
+SEED = 20
+ACTION_SEED = 5
 NUM_MAZES = 100
 NUM_TEST_RUNS = 100
 STARTING_POSITION = (0.5, 0.5)
@@ -17,6 +18,9 @@ GOAL_POSITION = (9.5, 4.5)
 MAX_STEPS_PER_EPISODE = 300
 
 # ============ ENVIRONMENT LOADING ============ #
+
+action_random = random.Random(ACTION_SEED)
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
@@ -190,7 +194,7 @@ class RandomAgent:
         self.action_size = action_size
 
     def act(self):
-        return random.choice(range(self.action_size))
+        return action_random.choice(range(self.action_size))
 
 # ============ TEST FUNCTION ============ #
 def test_agent(agent, test_maze):

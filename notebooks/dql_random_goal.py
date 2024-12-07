@@ -15,34 +15,37 @@ from math import isclose
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 20
-NUM_MAZES = 100
+SEED = 13
+ACTION_SEED = 10
+NUM_MAZES = 301
 NUM_AGENTS = 3
-NUM_TEST_RUNS = 100
-STARTING_POSITION = (0.5, 0.5)
-GOAL_POSITION = (9.5, 4.5)
+NUM_TEST_RUNS = 30
 
 BATCH_SIZE = 32
 HIDDEN_SIZE = 24
 
-TRAINING_EPISODES = 20
-LEARNING_RATE = 0.05
-GAMMA = 0.995
+TRAINING_EPISODES = 100
+LEARNING_RATE = 0.1
+GAMMA = 0.8
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 300
+MAX_STEPS_PER_EPISODE = 200
 
 REWARD_GOAL = 100000
-REWARD_NEW_POSITION = 100
+REWARD_NEW_POSITION = 0
+REWARD_DISTANCE_CHANGE = 100
 
-PENALTY_STALL = -20
-REWARD_DISTANCE_CHANGE = 10
+PENALTY_STALL = -10
 PENALTY_WALL_COLLISION = -10
-PENALTY_REPETITIVE_ACTION = -50
-PENALTY_FAILED_ACTION = -100
+PENALTY_REPETITIVE_ACTION = -10
+PENALTY_FAILED_ACTION = -10
 
 # ============ ENVIRONMENT LOADING ============ #
+
+action_random = random.Random(ACTION_SEED)
+torch.manual_seed(1)
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
@@ -53,32 +56,17 @@ def generate_mazes(seed):
 
 # ============ ENVIRONMENT CLASS ============ #
 class MazeEnv:
-    def __init__(self, maze, starting_position=STARTING_POSITION):
+    def __init__(self, maze):
         self.maze = maze
         self.width = maze.width
         self.height = maze.height
-        self.start_position = starting_position
-        self.goal_position = self._generate_random_goal(maze)  # Goal tied to the maze
         self.walls = maze.walls
         self.failed_actions = defaultdict(set)  # Track failed actions at each cell
         self.reset()
 
-    def _generate_random_goal(self, maze):
-        """Generate a random goal position tied to the maze on half coordinates."""
-        random.seed(hash(str(maze)))  # Use the maze's structure as the random seed
-        while True:
-            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
-            x = random.randint(0, self.width - 1) + 0.5
-            y = random.randint(0, self.height - 1) + 0.5
-            
-            # Ensure the goal is not the start position and is within valid bounds
-            if (x, y) != self.start_position and self.is_valid_position((x, y)):
-                print(f"Generated goal for maze: ({x}, {y})")  # Debugging output
-                return (x, y)
-
     def reset(self):
         """Reset environment to the starting position and initialize visited positions and recent history."""
-        self.position = self.start_position
+        self.position = self.maze.start
         self.done = False
         self.visited_positions = {}  # Track visited positions
         self.failed_actions.clear()  # Clear failed actions tracking
@@ -90,7 +78,7 @@ class MazeEnv:
     
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
-        return math.sqrt((position[0] - self.goal_position[0]) ** 2 + (position[1] - self.goal_position[1]) ** 2)
+        return math.sqrt((position[0] - self.maze.goal[0]) ** 2 + (position[1] - self.maze.goal[1]) ** 2)
 
     def is_valid_position(self, position):
         """Ensure the position is within maze boundaries."""
@@ -123,7 +111,7 @@ class MazeEnv:
                 reward += PENALTY_FAILED_ACTION
 
         # Check if the agent has reached the goal
-        if self.position == self.goal_position:
+        if self.position == self.maze.goal:
             reward += REWARD_GOAL - (self.visited_positions.get(self.position, 0) * 10)  # Larger reward for faster reach
             self.done = True
         else:
@@ -143,7 +131,7 @@ class MazeEnv:
 
     def _is_goal_reached(self):
         """Check if the agent has reached the goal within a small tolerance."""
-        return isclose(self.position[0], self.goal_position[0], abs_tol=1e-6) and isclose(self.position[1], self.goal_position[1], abs_tol=1e-6)
+        return isclose(self.position[0], self.maze.goal[0], abs_tol=1e-6) and isclose(self.position[1], self.maze.goal[1], abs_tol=1e-6)
 
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL auf ungesehenes Labyrinth"):
@@ -162,8 +150,8 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.maze.start[0], env.maze.start[1], 'go', markersize=10)
+    ax.plot(env.maze.goal[0], env.maze.goal[1], 'ro', markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
@@ -204,7 +192,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
     # Show the animation
     plt.show()
 
-def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth"):
+def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth mit random Ziel"):
     # Flatten all positions into a single list
     aggregated_positions = [pos for positions in all_positions for pos in positions]
     position_counts = Counter(aggregated_positions)
@@ -233,8 +221,8 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
         ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.maze.start[0], env.maze.start[1], 'go', markersize=10)
+    ax.plot(env.maze.goal[0], env.maze.goal[1], 'ro', markersize=10)
 
     # Draw the heatmap-style paths
     for positions in all_positions:
@@ -249,7 +237,7 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
 
     # Add a legend at the top-left corner with aggregated statistics
     total_runs = len(all_positions)
-    goals_reached = sum(1 for positions in all_positions if positions[-1] == env.goal_position)
+    goals_reached = sum(1 for positions in all_positions if positions[-1] == env.maze.goal)
     goals_missed = total_runs - goals_reached
     avg_steps = np.mean([len(positions) for positions in all_positions])
 
@@ -304,11 +292,11 @@ class Agent:
 
     def act(self, state_seq, env):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
-        if random.random() <= self.epsilon:
+        if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
             if not available_actions:  # If all actions failed, allow any
                 available_actions = list(range(self.action_size))
-            return random.choice(available_actions)
+            return action_random.choice(available_actions)
 
         state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -321,7 +309,7 @@ class Agent:
             return
 
         # Sample a random minibatch from the replay memory
-        minibatch = random.sample(self.memory, BATCH_SIZE)
+        minibatch = action_random.sample(self.memory, BATCH_SIZE)
 
         # Prepare arrays to batch process states, actions, rewards, etc.
         state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
@@ -382,7 +370,7 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        #print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
@@ -392,7 +380,7 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
 def train_agents_across_mazes(agents, mazes):
     """Train agents across multiple mazes."""
     for maze_index, maze in enumerate(mazes):
-        print(f"\nTraining agents on maze {maze_index + 1}...")
+        #print(f"\nTraining agents on maze {maze_index + 1}...")
         best_agent = train_agents_on_maze(agents, maze)
         for agent in agents:
             agent.clone_from(best_agent)
@@ -428,7 +416,7 @@ def test_agent(agent, test_maze):
     total_reward = 0  # Track total reward during testing
     positions = [env.position]  # List to store positions for animation
 
-    print("Agent's movements on the test maze:")
+    #print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
         next_state, reward, done, action_name = env.step(action)
@@ -438,7 +426,7 @@ def test_agent(agent, test_maze):
         total_reward += reward  # Update total reward
 
         # Print the current position, action, reward, and whether the goal was reached
-        print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
+        # print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
 
         if done:
             print(f"Goal reached in {step + 1} steps.")
