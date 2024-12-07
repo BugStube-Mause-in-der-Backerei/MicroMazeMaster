@@ -238,6 +238,29 @@ class Maze:
 
     def is_valid_move(self, position, new_position):
         return new_position in nx.neighbors(self.graph, position)
+    
+
+    def get_visible_nodes(self, position, orientation):
+    
+        visible_nodes = []
+
+        deltas = {
+            Orientation.NORTH: [(0, 1), (1, 0), (-1, 0), (1, 1), (-1, 1)],
+            Orientation.EAST: [(1, 0), (0, 1), (0, -1), (1, 1), (1, -1)],
+            Orientation.SOUTH: [(0, -1), (1, 0), (-1, 0), (1, -1), (-1, -1)],
+            Orientation.WEST: [(-1, 0), (0, 1), (0, -1), (-1, 1), (-1, -1)],
+        }
+
+        for delta in deltas[orientation]:
+            new_position = (position[0] + delta[0], position[1] + delta[1])
+            if new_position in self.graph.nodes:
+                visible_nodes.append(new_position)
+
+        return visible_nodes
+
+    def is_dead_end(self, position):
+        return len(list(self.graph.neighbors(position))) == 1
+
 
     @classmethod
     def from_json(cls, path):
