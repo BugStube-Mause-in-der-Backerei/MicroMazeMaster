@@ -15,31 +15,31 @@ from math import isclose
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 13
-ACTION_SEED = 10
-NUM_MAZES = 301
+SEED = 20
+ACTION_SEED = 5
+NUM_MAZES = 20
 NUM_AGENTS = 3
-NUM_TEST_RUNS = 30
+NUM_TEST_RUNS = 100
 
 BATCH_SIZE = 32
 HIDDEN_SIZE = 24
 
-TRAINING_EPISODES = 100
-LEARNING_RATE = 0.1
-GAMMA = 0.8
+TRAINING_EPISODES = 10
+LEARNING_RATE = 0.01
+GAMMA = 1
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 200
+MAX_STEPS_PER_EPISODE = 300
 
 REWARD_GOAL = 100000
-REWARD_NEW_POSITION = 0
-REWARD_DISTANCE_CHANGE = 100
+REWARD_NEW_POSITION = 100
+REWARD_DISTANCE_CHANGE = 10
 
-PENALTY_STALL = -10
+PENALTY_STALL = -20
 PENALTY_WALL_COLLISION = -10
-PENALTY_REPETITIVE_ACTION = -10
-PENALTY_FAILED_ACTION = -10
+PENALTY_REPETITIVE_ACTION = -50
+PENALTY_FAILED_ACTION = -100
 
 # ============ ENVIRONMENT LOADING ============ #
 
@@ -377,13 +377,14 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
     print(f"Best agent selected with reward: {highest_reward}")
     return best_agent
 
-def train_agents_across_mazes(agents, mazes):
-    """Train agents across multiple mazes."""
-    for maze_index, maze in enumerate(mazes):
-        #print(f"\nTraining agents on maze {maze_index + 1}...")
-        best_agent = train_agents_on_maze(agents, maze)
-        for agent in agents:
-            agent.clone_from(best_agent)
+def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES):
+    """Train agents across multiple mazes for a specified number of episodes."""
+    for episode in range(training_episodes):
+        for maze_index, maze in enumerate(mazes):
+            #print(f"  Training agents on maze {maze_index + 1}/{len(mazes)}...")
+            best_agent = train_agents_on_maze(agents, maze)
+            for agent in agents:
+                agent.clone_from(best_agent)
 
 def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     """Test the trained agent on the test maze multiple times and visualize the aggregated paths."""
