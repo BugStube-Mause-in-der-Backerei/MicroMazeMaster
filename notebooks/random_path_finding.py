@@ -11,7 +11,7 @@ from matplotlib import animation
 MAZE_SIZE = (10, 5)
 SEED = 20
 ACTION_SEED = 5
-NUM_MAZES = 100
+NUM_MAZES = 20
 NUM_TEST_RUNS = 100
 STARTING_POSITION = (0.5, 0.5)
 GOAL_POSITION = (9.5, 4.5)
