@@ -5,6 +5,7 @@ from enum import Enum
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from PIL import Image, ImageDraw
 from shapely.geometry import LineString
 
@@ -58,6 +59,7 @@ class Maze:
         self.start = (0.5, 0.5)
         if generation:
             self.__generate_maze()
+        self.map = self.__generate_map()
 
     def to_dict(self):
         return {
@@ -234,45 +236,19 @@ class Maze:
         except Exception as e:
             logger.error(f"Error writing to file: {e}")
 
-    def is_valid_move(self, position, orientation):
-
-        match orientation:
-            case Orientation.NORTH:
-                new_position = (position[0], position[1] + 1)
-            case Orientation.EAST:
-                new_position = (position[0] + 1, position[1])
-            case Orientation.SOUTH:
-                new_position = (position[0], position[1] - 1)
-            case Orientation.WEST:
-                new_position = (position[0] - 1, position[1])
-
-        return new_position in nx.neighbors(self.graph, position)
+    def normalize_position(self, position):
+        return tuple(round(coord, 2) for coord in position)
 
     def is_valid_move(self, position, new_position):
+        position = self.normalize_position(position)
+        new_position = self.normalize_position(new_position)
+        if position == new_position:
+            return True
         return new_position in nx.neighbors(self.graph, position)
-    
-
-    def get_visible_nodes(self, position, orientation):
-    
-        visible_nodes = []
-
-        deltas = {
-            Orientation.NORTH: [(0, 1), (1, 0), (-1, 0), (1, 1), (-1, 1)],
-            Orientation.EAST: [(1, 0), (0, 1), (0, -1), (1, 1), (1, -1)],
-            Orientation.SOUTH: [(0, -1), (1, 0), (-1, 0), (1, -1), (-1, -1)],
-            Orientation.WEST: [(-1, 0), (0, 1), (0, -1), (-1, 1), (-1, -1)],
-        }
-
-        for delta in deltas[orientation]:
-            new_position = (position[0] + delta[0], position[1] + delta[1])
-            if new_position in self.graph.nodes:
-                visible_nodes.append(new_position)
-
-        return visible_nodes
+ 
 
     def is_dead_end(self, position):
         return len(list(self.graph.neighbors(position))) == 1
-
 
     @classmethod
     def from_json(cls, path):
@@ -281,7 +257,12 @@ class Maze:
                 data = json.load(file)
                 maze = cls(data["width"], data["height"], data["seed"], data["missing_walls"], generation=False)
                 maze.walls = [Wall.from_dict(wall_data) for wall_data in data["walls"]]
+
                 return maze
         except Exception as e:
             logger.error(f"Error reading from file: {e}")
             return None
+
+    def __generate_map(self, cell_size=settings.CELL_SIZE-1):
+        arr = np.array(self.__generate_image(cell_size), dtype=np.uint8)
+        return arr[::-1]

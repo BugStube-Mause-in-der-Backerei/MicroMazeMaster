@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import math
+from micromazemaster.utils.config import settings
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
@@ -32,7 +33,7 @@ GAMMA = 1.0
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 1400
+MAX_STEPS_PER_EPISODE = 100
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
@@ -60,7 +61,7 @@ def generate_mazes(seed):
 class MazeEnv:
     def __init__(self, maze, starting_position=STARTING_POSITION, goal_position=GOAL_POSITION):
         self.mouse = Mouse(
-            starting_position[0], starting_position[1], Orientation.NORTH, maze)
+            (starting_position[0], starting_position[1]), maze)
         self.maze = maze
         self.width = maze.width
         self.height = maze.height
@@ -75,15 +76,15 @@ class MazeEnv:
 
     def reset(self):
         """Reset environment to the starting position and initialize visited positions and recent history."""
-        self.position = self.start_position
+        self.mouse.position = self.start_position
         self.done = False
         self.visited_positions = {}  # Track visited positions
         self.failed_actions.clear()  # Clear failed actions tracking
-        return self.position
+        return self.mouse.position
 
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
-        return not self.maze.is_valid_move(position, new_position)
+        return not self.maze.is_valid_move(tuple(position), tuple(new_position))
 
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
@@ -100,76 +101,83 @@ class MazeEnv:
     def is_dead_end(self, position):
         return self.maze.is_dead_end(position)
 
-    def step(self, action):
+    def step(self, action, dt=0.5):
         """Move the agent based on action and return position, reward, and completion status."""
         moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
         action_names = ["North", "South", "West", "East"]
         dx, dy = moves[action]
-        new_position = (self.position[0] + dx, self.position[1] + dy)
+        new_position = (self.mouse.position[0] + dx, self.mouse.position[1] + dy)
 
+        # print(f"Attempting to move from {self.mouse.position} to {new_position}")
+    
+        angle_map = {0: math.pi / 2, 1: -math.pi / 2, 2: math.pi, 3: 0}
+        self.mouse.rotate(angle_map[action])
+    
         reward = 0
-
-        # Set mouse orientation
-        if action == 0:
-            self.mouse.orientation = Orientation.NORTH
-        elif action == 1:
-            self.mouse.orientation = Orientation.SOUTH
-        elif action == 2:
-            self.mouse.orientation = Orientation.WEST
-        elif action == 3:
-            self.mouse.orientation = Orientation.EAST
-
+    
         # Check for wall collision
-        if not self.hits_wall(self.position, new_position):
-            prev_distance = self.distance_to_goal(self.position)
-            self.position = new_position
-            new_distance = self.distance_to_goal(self.position)
-
-            # Reward based on progress toward the goal
+        if not self.hits_wall(self.mouse.position, new_position):
+            self.mouse.set_target_cell(new_position)
+    
+            while not self.mouse.move(dt):
+                # check distances with ray-tracing
+                self.mouse.update_sensor()
+                print(f"Distances: {self.mouse.distance}")
+                pass
+            
+            prev_distance = self.distance_to_goal(self.mouse.position)
+            self.mouse.position = new_position
+    
+            new_distance = self.distance_to_goal(self.mouse.position)
             distance_change = prev_distance - new_distance
             reward += REWARD_DISTANCE_CHANGE * distance_change
         else:
-            reward += PENALTY_WALL_COLLISION  # Penalty for attempting to go through a wall
-            self.failed_actions[self.position].add(action)  # Record failed action
-            # Penalize repeated failed actions
-            if action in self.failed_actions[self.position]:
+            reward += PENALTY_WALL_COLLISION
+            self.failed_actions[self.mouse.position].add(action)
+            if action in self.failed_actions[self.mouse.position]:
                 reward += PENALTY_FAILED_ACTION
-
-        # Check for dead end
-        if self.is_dead_end(self.position):
-            reward += PENALTY_DEAD_END  # Penalty for reaching a dead end
+    
+        while self.is_dead_end(self.mouse.position):
             action = self.get_next_action()
-            return self.step(action) 
-
-        # Determine reward based on outcome of the move
-        if self.position == self.goal_position:
-            # Larger reward for faster reach
-            reward += REWARD_GOAL - \
-                (self.visited_positions.get(self.position, 0) * 10)
+            if action is None:
+                break
+            # print(f"In dead end. Recursive call with action {action_names[action]}")
+            self.mouse.position, reward, self.done, _ = self.step(action)
+            if self.done:
+                return self.mouse.position, reward, self.done, action_names[action]
+    
+        # Check for reaching the goal
+        reward += self.check_goal_reached(action)
+    
+        return self.mouse.position, reward, self.done, action_names[action]
+    
+    def check_goal_reached(self, action):
+        add_reward = 0
+        if self.mouse.position == self.goal_position:
+            add_reward += REWARD_GOAL - (self.visited_positions.get(self.mouse.position, 0) * 10)
             self.done = True
         else:
-            # Penalize repeating the same step (stuck behavior)
-            if action in self.failed_actions[self.position]:
-                reward += PENALTY_REPETITIVE_ACTION
-
-            # Penalize stalling or revisiting recent positions
-            if self.visited_positions.get(self.position, 0) > 2:
-                reward += PENALTY_STALL
+            if action in self.failed_actions[self.mouse.position]:
+                add_reward += PENALTY_REPETITIVE_ACTION
+            if self.visited_positions.get(self.mouse.position, 0) > 2:
+                add_reward += PENALTY_STALL
             else:
-                # Encourage exploring new positions
-                reward += REWARD_NEW_POSITION
-                self.visited_positions[self.position] = self.visited_positions.get(
-                    self.position, 0) + 1
+                add_reward += REWARD_NEW_POSITION
+                self.visited_positions[self.mouse.position] = self.visited_positions.get(self.mouse.position, 0) + 1
+        return add_reward
 
-        return self.position, reward, self.done, action_names[action]
     
     def get_next_action(self):
         for action in range(4):
-            dx, dy = [(-1, 0), (1, 0), (0, -1), (0, 1)][action]
-            new_position = (self.position[0] + dx, self.position[1] + dy)
-            if not self.hits_wall(self.position, new_position) and not self.is_dead_end(new_position):
+            moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
+            action_names = ["North", "South", "West", "East"]
+            dx, dy = moves[action]
+            new_position = (self.mouse.position[0] + dx, self.mouse.position[1] + dy)
+            if not self.hits_wall(self.mouse.position, new_position) and not self.is_dead_end(new_position):
+                # print(f"Valid Action found: {action_names[action]}")
                 return action
 
+        # print(f"No valid moves from {self.mouse.position}, choosing random action.")
         return random.choice(range(4))
 
 # ============ VISUALIZATION ============ #
@@ -429,18 +437,19 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        print(
-            f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        # print(
+        #     f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
-    print(f"Best agent selected with reward: {highest_reward}")
+    # print(f"Best agent selected with reward: {highest_reward}")
     return best_agent
 
 
 def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES):
     """Train agents across multiple mazes for a specified number of episodes."""
     for episode in range(training_episodes):
+        print(f"Training Episode: {episode + 1}")
         for maze_index, maze in enumerate(mazes):
             #print(f"  Training agents on maze {maze_index + 1}/{len(mazes)}...")
             best_agent = train_agents_on_maze(agents, maze)
@@ -455,7 +464,7 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
 
     for run in range(num_runs):
         state_seq = [env.reset()] * SEQUENCE_LENGTH
-        positions = [env.position]  # Track positions for this run
+        positions = [env.mouse.position]  # Track positions for this run
 
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
@@ -475,10 +484,10 @@ def test_agent(agent, test_maze):
     """Test the trained agent on an unseen maze and render the path step-by-step."""
     env = MazeEnv(test_maze)
     state_seq = [env.reset()] * SEQUENCE_LENGTH
-    path = [env.position]  # Start tracking the path from the initial position
+    path = [env.mouse.position]  # Start tracking the path from the initial position
 
     total_reward = 0  # Track total reward during testing
-    positions = [env.position]  # List to store positions for animation
+    positions = [env.mouse.position]  # List to store positions for animation
 
     print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
