@@ -14,7 +14,7 @@ class MazeEnv:
         self.width = maze.width
         self.height = maze.height
         self.start_position = starting_position
-        self.goal_position = goal_position
+        self.goal = goal_position
         self.walls = maze.walls
 
 class Backtracker:
@@ -41,7 +41,7 @@ class Backtracker:
 
         print(str(mouse.position) + " : " + str(mouse.orientation) + " : " + str(ways) + " : " + str(self.count))
 
-        for i in range(len(ways)):
+        for i in reversed(range(len(ways))):
             if ways[i]:
                 match i:
                     case 0:
@@ -71,8 +71,10 @@ class Backtracker:
                         mouse.move_backward()
                         mouse.turn_left()
 
+                path.append(tuple(mouse.position))
+
         # Remove the position from the path if it's a dead end
-        path.pop()
+        #path.pop()
         return False
 
 def visualize_agent_run(env, positions, total_reward, total_steps, caption="Backtracking Visualization"):
@@ -92,12 +94,12 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="Back
 
     # Draw the path start and goal
     ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.goal[0], env.goal[1], 'ro', markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
     max_visits = max(position_counts.values())
-    colors = ["lightblue", "blue", "darkblue"]
+    colors = ["lightblue", "blue"]
     cmap = mcolors.LinearSegmentedColormap.from_list("gradient", colors)
     norm = mcolors.Normalize(vmin=1, vmax=max_visits)
 
@@ -116,7 +118,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="Back
         return agent_dot,
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
+    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=100, blit=True)
 
     # Remove gridlines and axis labels
     ax.axis('off')
@@ -135,6 +137,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="Back
 
 # Example usage
 maze = Maze(width=10, height=5, seed=42, missing_walls=False)
+maze.goal = GOAL_POSITION
 mouse = Mouse(x=maze.start[0], y=maze.start[1], orientation=Orientation.EAST, maze=maze)
 env = MazeEnv(maze)
 backtracker = Backtracker()
