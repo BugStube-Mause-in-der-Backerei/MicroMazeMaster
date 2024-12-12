@@ -136,7 +136,7 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="Back
     plt.show()
 
 # Example usage
-maze = Maze(width=10, height=5, seed=42, missing_walls=False)
+maze = Maze(width=10, height=5, seed=42)
 maze.goal = GOAL_POSITION
 mouse = Mouse(x=maze.start[0], y=maze.start[1], orientation=Orientation.EAST, maze=maze)
 env = MazeEnv(maze)

@@ -53,11 +53,10 @@ class Wall:
 
 
 class Maze:
-    def __init__(self, width, height, seed, missing_walls=settings.WALLS_TO_REMOVE, generation=True):
+    def __init__(self, width, height, seed, generation=True):
         self.seed = seed
         self.width = width
         self.height = height
-        self.missing_walls = missing_walls
         self.walls = []
         self.shapely_walls = []
         self.graph = nx.Graph()
@@ -72,7 +71,6 @@ class Maze:
             "seed": self.seed,
             "width": self.width,
             "height": self.height,
-            "missing_walls": self.missing_walls,
             "walls": [wall.to_dict() for wall in self.walls],
         }
 
@@ -167,13 +165,6 @@ class Maze:
             if in_wall:
                 self.walls.append(Wall(x + 1, start_y, x + 1, self.height))
 
-        # Remove some walls
-        # Check if the number of walls is bigger than the number of walls to remove
-        if len(self.walls) > self.missing_walls:
-            indices_to_remove = random.sample(range(len(self.walls)), self.missing_walls)
-            for wall in sorted(indices_to_remove, reverse=True):
-                self.walls.pop(wall)
-
         # Outer boundary walls
         self.walls.append(Wall(0, 0, self.width, 0))  # top
         self.walls.append(Wall(self.width, 0, self.width, self.height))  # right
@@ -263,7 +254,7 @@ class Maze:
         try:
             with open(path, "r") as file:
                 data = json.load(file)
-                maze = cls(data["width"], data["height"], data["seed"], data["missing_walls"], generation=False)
+                maze = cls(data["width"], data["height"], data["seed"], generation=False)
                 maze.walls = [Wall.from_dict(wall_data) for wall_data in data["walls"]]
                 return maze
         except Exception as e:

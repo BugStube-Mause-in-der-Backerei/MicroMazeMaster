@@ -5,7 +5,7 @@ from micromazemaster.utils.config import settings
 
 cell_size = settings.CELL_SIZE
 
-maze = Maze(width=5, height=5, seed=1234, missing_walls=False)
+maze = Maze(width=5, height=5, seed=1234)
 mouse = Mouse(x=0.5, y=0.5, orientation=Orientation.EAST, maze=maze)
 
 # The update_sensor method will update the mouse's distance attribute
