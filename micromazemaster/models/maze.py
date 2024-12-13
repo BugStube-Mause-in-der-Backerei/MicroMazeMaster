@@ -235,7 +235,8 @@ class Maze:
             logger.error(f"Error writing to file: {e}")
 
     def is_valid_move(self, position, orientation):
-
+        if position not in self.graph:
+            return False
         match orientation:
             case Orientation.NORTH:
                 new_position = (position[0], position[1] + 1)
@@ -249,7 +250,10 @@ class Maze:
         return new_position in nx.neighbors(self.graph, position)
 
     def is_valid_move(self, position, new_position):
-        return new_position in nx.neighbors(self.graph, position)
+        if position not in self.graph:
+            return False
+        valid = new_position in nx.neighbors(self.graph, position)
+        return valid
 
     @classmethod
     def from_json(cls, path):

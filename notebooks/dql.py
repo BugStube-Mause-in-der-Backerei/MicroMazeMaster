@@ -76,9 +76,9 @@ class MazeEnv:
         self.failed_actions.clear()  # Clear failed actions tracking
         return self.position
 
-    def hits_wall(self, position, new_position):
+    def valid_move(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
-        return not self.maze.is_valid_move(position, new_position)
+        return self.maze.is_valid_move(position, new_position)
     
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
@@ -89,17 +89,27 @@ class MazeEnv:
         x, y = position
         return 0 <= x < self.width and 0 <= y < self.height
 
+    def find_openings(self, position):
+        return [
+            self.maze.is_valid_move(position, (position[0], position[1] + 1)),
+            self.maze.is_valid_move(position, (position[0] + 1, position[1])),
+            self.maze.is_valid_move(position, (position[0], position[1] - 1)),
+            self.maze.is_valid_move(position, (position[0] - 1, position[1]))
+        ]
+
     def step(self, action):
         """Move the agent based on action and return position, reward, and completion status."""
-        moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
-        action_names = ["North", "South", "West", "East"]
+        moves = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+        action_names = ["North", "East", "South", "West"]
         dx, dy = moves[action]
         new_position = (self.position[0] + dx, self.position[1] + dy)
+
+        available_actions = [i for i, val in enumerate(self.position) if val]
 
         reward = 0
 
         # Check for wall collision
-        if not self.hits_wall(self.position, new_position):
+        if self.valid_move(self.position, new_position):
             prev_distance = self.distance_to_goal(self.position)
             self.position = new_position
             new_distance = self.distance_to_goal(self.position)
@@ -293,7 +303,7 @@ class Agent:
     def act(self, state_seq, env):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
         if action_random.random() <= self.epsilon:
-            available_actions = [a for a in range(self.action_size)]
+            available_actions = [i for i, val in enumerate(env.find_openings(env.position)) if val]
             if not available_actions:  # If all actions failed, allow any
                 available_actions = list(range(self.action_size))
             return action_random.choice(available_actions)
