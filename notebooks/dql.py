@@ -406,12 +406,11 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
     for i, agent in enumerate(agents):
         total_reward = 0
         env = MazeEnv(maze_data)
-        state_seq = [env.reset()] * SEQUENCE_LENGTH
+        state_seq = [(env.reset())] * SEQUENCE_LENGTH
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
-            next_state, reward, done, _, openings = env.step(action)
-            combined_state = np.concatenate((next_state, openings))  # Combine features
-            next_state_seq = state_seq[1:] + [combined_state]  # Update sequence
+            position, reward, done, _, openings = env.step(action)  # Combine features
+            next_state_seq = state_seq[1:] + [(position, openings)]  # Update sequence
             agent.store_experience(state_seq, action, reward, next_state_seq, done)
             state_seq = next_state_seq
             total_reward += reward
@@ -445,9 +444,9 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
 
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
-            next_state, _, done, _, openings = env.step(action)
-            state_seq = state_seq[1:] + [next_state, openings]
-            positions.append(next_state)
+            position, _, done, _, openings = env.step(action)
+            state_seq = state_seq[1:] + [(position, openings)]
+            positions.append(position)
             if done:
                 break
 
@@ -468,10 +467,10 @@ def test_agent(agent, test_maze):
     #print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
-        next_state, reward, done, action_name, openings = env.step(action)
-        state_seq = state_seq[1:] + [(next_state, openings)]
-        path.append(next_state)  # Track the new position
-        positions.append(next_state)  # Append to positions for animation
+        position, reward, done, action_name, openings = env.step(action)
+        state_seq = state_seq[1:] + [(position, openings)]
+        path.append(position)  # Track the new position
+        positions.append(position)  # Append to positions for animation
         total_reward += reward  # Update total reward
 
         # Print the current position, action, reward, and whether the goal was reached
