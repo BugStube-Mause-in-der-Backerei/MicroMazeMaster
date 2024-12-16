@@ -74,7 +74,7 @@ class MazeEnv:
         self.done = False
         self.visited_positions = {}  # Track visited positions
         self.failed_actions.clear()  # Clear failed actions tracking
-        return self.position
+        return self.position, self.find_openings(self.position)
 
     def valid_move(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
@@ -141,7 +141,7 @@ class MazeEnv:
                 reward += REWARD_NEW_POSITION
                 self.visited_positions[self.position] = self.visited_positions.get(self.position, 0) + 1
 
-        return self.position, reward, self.done, action_names[action]
+        return self.position, reward, self.done, action_names[action], self.find_openings(self.position)
     
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL auf ungesehenes Labyrinth"):
@@ -298,6 +298,10 @@ class Agent:
 
     def store_experience(self, state_seq, action, reward, next_state_seq, done):
         """Store experiences in memory for training."""
+        state_seq = [np.array(state).reshape(-1) for state in state_seq]
+        next_state_seq = [np.array(state).reshape(-1) for state in next_state_seq]
+        state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
+        next_state_seq = torch.FloatTensor(next_state_seq).unsqueeze(0).to(device)
         self.memory.append((state_seq, action, reward, next_state_seq, done))
 
     def act(self, state_seq, env):
@@ -322,10 +326,10 @@ class Agent:
         minibatch = action_random.sample(self.memory, BATCH_SIZE)
 
         # Prepare arrays to batch process states, actions, rewards, etc.
-        state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
+        state_batch = torch.cat([experience[0] for experience in minibatch]).to(device)
         action_batch = torch.LongTensor([experience[1] for experience in minibatch]).to(device)
         reward_batch = torch.FloatTensor([experience[2] for experience in minibatch]).to(device)
-        next_state_batch = torch.FloatTensor([experience[3] for experience in minibatch]).to(device)
+        next_state_batch = torch.cat([experience[3] for experience in minibatch]).to(device)
         done_batch = torch.FloatTensor([float(experience[4]) for experience in minibatch]).to(device)
 
         # Compute Q-values for current states
@@ -372,8 +376,8 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
         state_seq = [env.reset()] * SEQUENCE_LENGTH
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
-            next_state, reward, done, _ = env.step(action)
-            next_state_seq = state_seq[1:] + [next_state]
+            next_state, reward, done, _, openings = env.step(action)
+            next_state_seq = state_seq[1:] + [(next_state, openings)]
             agent.store_experience(state_seq, action, reward, next_state_seq, done)
             state_seq = next_state_seq
             total_reward += reward
@@ -407,8 +411,8 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
 
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
-            next_state, _, done, _ = env.step(action)
-            state_seq = state_seq[1:] + [next_state]
+            next_state, _, done, _, openings = env.step(action)
+            state_seq = state_seq[1:] + [next_state, openings]
             positions.append(next_state)
             if done:
                 break
@@ -430,8 +434,8 @@ def test_agent(agent, test_maze):
     #print("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
-        next_state, reward, done, action_name = env.step(action)
-        state_seq = state_seq[1:] + [next_state]
+        next_state, reward, done, action_name, openings = env.step(action)
+        state_seq = state_seq[1:] + [(next_state, openings)]
         path.append(next_state)  # Track the new position
         positions.append(next_state)  # Append to positions for animation
         total_reward += reward  # Update total reward
@@ -458,7 +462,7 @@ TRAINING_MAZES = ALL_MAZES[:-1]
 TEST_MAZE = ALL_MAZES[-1]
 
 # Initialize multiple agents
-agents = [Agent(state_size=2, action_size=4) for _ in range(NUM_AGENTS)]
+agents = [Agent(state_size=6, action_size=4) for _ in range(NUM_AGENTS)]
 
 # Train across mazes
 print("Training agents across mazes...")
