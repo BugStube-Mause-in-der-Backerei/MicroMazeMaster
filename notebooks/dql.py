@@ -31,7 +31,7 @@ GAMMA = 1
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 1500
+MAX_STEPS_PER_EPISODE = 1300
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
@@ -51,7 +51,7 @@ def generate_mazes(seed):
     random.seed(seed)
     mazes = []
     for index in range(NUM_MAZES):
-        mazes.append(Maze(MAZE_SIZE[0], MAZE_SIZE[1], seed=random.randint(1, 1000)))
+        mazes.append(Maze(MAZE_SIZE[0], MAZE_SIZE[1], seed=random.randint(1, 1000), missing_walls=False))
     random.seed(None)
     return mazes
 
@@ -298,26 +298,26 @@ class Agent:
 
     def store_experience(self, state_seq, action, reward, next_state_seq, done):
         # Debugging: Print the structure of state_seq and next_state_seq
-        print("Inspecting state_seq:")
-        for i, state in enumerate(state_seq):
-            print(f"State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
+        # print("Inspecting state_seq:")
+        # for i, state in enumerate(state_seq):
+        #     print(f"State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
 
-        print("Inspecting next_state_seq:")
-        for i, state in enumerate(next_state_seq):
-            print(f"Next State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
+        # print("Inspecting next_state_seq:")
+        # for i, state in enumerate(next_state_seq):
+        #     print(f"Next State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
 
         # Flatten each state in state_seq and next_state_seq
         state_seq = [np.concatenate([np.array(state[0]).flatten(), np.array(state[1]).flatten()]) for state in state_seq]
         next_state_seq = [np.concatenate([np.array(state[0]).flatten(), np.array(state[1]).flatten()]) for state in next_state_seq]
 
         # Debugging: Print the flattened states
-        print("Flattened state_seq:")
-        for i, state in enumerate(state_seq):
-            print(f"Flattened State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
+        # print("Flattened state_seq:")
+        # for i, state in enumerate(state_seq):
+        #     print(f"Flattened State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
 
-        print("Flattened next_state_seq:")
-        for i, state in enumerate(next_state_seq):
-            print(f"Flattened Next State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
+        # print("Flattened next_state_seq:")
+        # for i, state in enumerate(next_state_seq):
+        #     print(f"Flattened Next State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
 
         # Check if any element is still a sequence with inconsistent lengths
         try:
@@ -332,10 +332,6 @@ class Agent:
         # Store the experience tuple
         self.memory.append((state_seq, action, reward, next_state_seq, done))
 
-
-
-
-
     def act(self, state_seq, env):
         if action_random.random() <= self.epsilon:
             available_actions = [i for i, val in enumerate(env.find_openings(env.position)) if val]
@@ -343,11 +339,18 @@ class Agent:
                 available_actions = list(range(self.action_size))
             return action_random.choice(available_actions)
 
-        state_seq = [np.array(state).flatten() for state in state_seq]  # Flatten states
+        # Flatten each state in the sequence and ensure all states have a consistent shape
+        state_seq = [np.concatenate([np.array(state[0]).flatten(), np.array(state[1]).flatten()]) for state in state_seq]
+
+        # Ensure the flattened states have a uniform shape
         state_seq = torch.FloatTensor(np.array(state_seq)).unsqueeze(0).to(device)
+
+        # Perform action selection without gradients
         with torch.no_grad():
             best_action = torch.argmax(self.model(state_seq)).item()
+
         return best_action
+
 
 
     def replay(self):
