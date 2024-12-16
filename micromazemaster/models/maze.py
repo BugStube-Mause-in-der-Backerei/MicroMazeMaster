@@ -222,6 +222,32 @@ class Maze:
         plt.axis("off")
         return fig, ax
 
+    def plot_graph(self) -> plt.Figure:
+        """Plots the maze graph.
+
+        Args:
+            - maze (Maze): The maze object that contains the walls.
+
+        Returns:
+            - plt.Figure: The figure object.
+        """
+        graph = self.graph
+
+        fig = plt.figure(figsize=(self.width, self.height))
+        pos = {node: (node[0], node[1]) for node in graph.nodes()}
+        nx.draw(
+            graph,
+            pos,
+            with_labels=True,
+            node_size=300,
+            node_color="lightblue",
+            font_size=8,
+            font_color="black",
+            edge_color="gray",
+        )
+        plt.title("Maze in Graph representation")
+        return fig
+
     def export_as_png(self, path, cell_size=20):
         image = self.__generate_image(cell_size)
         image.save(path, "PNG")
@@ -261,6 +287,6 @@ class Maze:
             logger.error(f"Error reading from file: {e}")
             return None
 
-    def __generate_map(self, cell_size=settings.CELL_SIZE-1):
+    def __generate_map(self, cell_size=settings.CELL_SIZE - 1):
         arr = np.array(self.__generate_image(cell_size), dtype=np.uint8)
         return arr[::-1]
