@@ -77,16 +77,6 @@ class Maze:
     def __generate_maze(self):
         random.seed(self.seed)
 
-        while True:
-            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
-            x = random.randint(0, self.width - 1) + 0.5
-            y = random.randint(0, self.height - 1) + 0.5
-
-            # Ensure the goal is not the start position
-            if (x, y) != self.start:
-                self.goal = (x, y)
-                break
-
         # Initialize map and visited list
         map_cells = [Cell() for _ in range(self.width * self.height)]
         visited = [False] * (self.width * self.height)
@@ -174,6 +164,16 @@ class Maze:
         # Convert walls to shapely objects
         self.shapely_walls = [LineString(wall.get_positions()) for wall in self.walls]
         self.__generate_graph()
+
+        while True:
+            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
+            x = random.randint(0, self.width - 1) + 0.5
+            y = random.randint(0, self.height - 1) + 0.5
+
+            # Ensure the goal is not the start position
+            if nx.dijkstra_path_length(self.graph, self.start, (x, y)) > self.width:
+                self.goal = (x, y)
+                break
 
     def __generate_graph(self):
         for x in range(self.width):
