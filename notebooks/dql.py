@@ -297,25 +297,58 @@ class Agent:
         self.loss_fn = nn.MSELoss()
 
     def store_experience(self, state_seq, action, reward, next_state_seq, done):
-        """Store experiences in memory for training."""
-        state_seq = [np.array(state).reshape(-1) for state in state_seq]
-        next_state_seq = [np.array(state).reshape(-1) for state in next_state_seq]
-        state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
-        next_state_seq = torch.FloatTensor(next_state_seq).unsqueeze(0).to(device)
+        # Debugging: Print the structure of state_seq and next_state_seq
+        print("Inspecting state_seq:")
+        for i, state in enumerate(state_seq):
+            print(f"State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
+
+        print("Inspecting next_state_seq:")
+        for i, state in enumerate(next_state_seq):
+            print(f"Next State {i}: {state}, type: {type(state)}, shape: {getattr(state, 'shape', 'N/A')}")
+
+        # Flatten each state in state_seq and next_state_seq
+        state_seq = [np.concatenate([np.array(state[0]).flatten(), np.array(state[1]).flatten()]) for state in state_seq]
+        next_state_seq = [np.concatenate([np.array(state[0]).flatten(), np.array(state[1]).flatten()]) for state in next_state_seq]
+
+        # Debugging: Print the flattened states
+        print("Flattened state_seq:")
+        for i, state in enumerate(state_seq):
+            print(f"Flattened State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
+
+        print("Flattened next_state_seq:")
+        for i, state in enumerate(next_state_seq):
+            print(f"Flattened Next State {i}: {state}, shape: {state.shape if hasattr(state, 'shape') else 'N/A'}")
+
+        # Check if any element is still a sequence with inconsistent lengths
+        try:
+            state_seq = torch.FloatTensor(np.array(state_seq)).unsqueeze(0).to(device)  # Add batch dimension
+            next_state_seq = torch.FloatTensor(np.array(next_state_seq)).unsqueeze(0).to(device)
+        except ValueError as e:
+            print(f"Error while converting to tensor: {e}")
+            print(f"State seq: {state_seq}")
+            print(f"Next state seq: {next_state_seq}")
+            raise e  # Re-raise the exception to stop execution if needed
+
+        # Store the experience tuple
         self.memory.append((state_seq, action, reward, next_state_seq, done))
 
+
+
+
+
     def act(self, state_seq, env):
-        """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
         if action_random.random() <= self.epsilon:
             available_actions = [i for i, val in enumerate(env.find_openings(env.position)) if val]
-            if not available_actions:  # If all actions failed, allow any
+            if not available_actions:
                 available_actions = list(range(self.action_size))
             return action_random.choice(available_actions)
 
-        state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
+        state_seq = [np.array(state).flatten() for state in state_seq]  # Flatten states
+        state_seq = torch.FloatTensor(np.array(state_seq)).unsqueeze(0).to(device)
         with torch.no_grad():
             best_action = torch.argmax(self.model(state_seq)).item()
         return best_action
+
 
     def replay(self):
         """Train model on randomly sampled experiences from memory."""
@@ -377,7 +410,8 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
         for step in range(MAX_STEPS_PER_EPISODE):
             action = agent.act(state_seq, env)
             next_state, reward, done, _, openings = env.step(action)
-            next_state_seq = state_seq[1:] + [(next_state, openings)]
+            combined_state = np.concatenate((next_state, openings))  # Combine features
+            next_state_seq = state_seq[1:] + [combined_state]  # Update sequence
             agent.store_experience(state_seq, action, reward, next_state_seq, done)
             state_seq = next_state_seq
             total_reward += reward
