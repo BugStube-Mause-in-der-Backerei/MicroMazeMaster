@@ -45,7 +45,6 @@ class Wall:
     def get_positions(self):
         return self.start_position, self.end_position
 
-
 class Maze:
     def __init__(self, width, height, seed, missing_walls=settings.WALLS_TO_REMOVE, generation=True):
         self.seed = seed
@@ -205,8 +204,8 @@ class Maze:
 
         for wall in self.walls:
             line = (
-                (wall.start_position[0] * cell_size, image.height - wall.start_position[1] * cell_size),
-                (wall.end_position[0] * cell_size, image.height - wall.end_position[1] * cell_size),
+                (wall.start_position[0] * cell_size, image.height - wall.start_position[1] * cell_size - 1),
+                (wall.end_position[0] * cell_size, image.height - wall.end_position[1] * cell_size - 1),
             )
             draw.line(line, fill=1)
 
@@ -263,6 +262,6 @@ class Maze:
             logger.error(f"Error reading from file: {e}")
             return None
 
-    def __generate_map(self, cell_size=settings.CELL_SIZE-1):
+    def __generate_map(self, cell_size=settings.CELL_SIZE):
         arr = np.array(self.__generate_image(cell_size), dtype=np.uint8)
         return arr[::-1]
