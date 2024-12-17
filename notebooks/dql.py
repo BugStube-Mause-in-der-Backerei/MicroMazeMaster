@@ -1,20 +1,22 @@
-from micromazemaster.models.maze import Maze
-import json
-import numpy as np
-from shapely.geometry import LineString
+import math
 import random
-import matplotlib.pyplot as plt
+from collections import Counter, defaultdict, deque
+
 import matplotlib.colors as mcolors
-from matplotlib import animation
-from collections import deque, defaultdict, Counter
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import math
+from matplotlib import animation
+from shapely.geometry import LineString
+
+from micromazemaster.models.maze import Maze
+from micromazemaster.utils.logging import logger
 
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
-SEED = 20
+SEED = 1582
 ACTION_SEED = 5
 NUM_MAZES = 20
 NUM_AGENTS = 3
@@ -31,7 +33,7 @@ GAMMA = 1
 EPSILON_DECAY = 0.995
 MIN_EPSILON = 0.1
 SEQUENCE_LENGTH = 10
-MAX_STEPS_PER_EPISODE = 1500
+MAX_STEPS_PER_EPISODE = 300
 
 REWARD_GOAL = 100000
 REWARD_NEW_POSITION = 100
@@ -47,13 +49,15 @@ PENALTY_FAILED_ACTION = -100
 action_random = random.Random(ACTION_SEED)
 torch.manual_seed(1)
 
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
-    for index in range(NUM_MAZES):
+    for _ in range(NUM_MAZES):
         mazes.append(Maze(MAZE_SIZE[0], MAZE_SIZE[1], seed=random.randint(1, 1000)))
     random.seed(None)
     return mazes
+
 
 # ============ ENVIRONMENT CLASS ============ #
 class MazeEnv:
@@ -79,7 +83,7 @@ class MazeEnv:
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
         return not self.maze.is_valid_move_position(position, new_position)
-    
+
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
         return math.sqrt((position[0] - self.goal_position[0]) ** 2 + (position[1] - self.goal_position[1]) ** 2)
@@ -103,7 +107,7 @@ class MazeEnv:
             prev_distance = self.distance_to_goal(self.position)
             self.position = new_position
             new_distance = self.distance_to_goal(self.position)
-            
+
             # Reward based on progress toward the goal
             distance_change = prev_distance - new_distance
             reward += REWARD_DISTANCE_CHANGE * distance_change
@@ -116,13 +120,15 @@ class MazeEnv:
 
         # Determine reward based on outcome of the move
         if self.position == self.goal_position:
-            reward += REWARD_GOAL - (self.visited_positions.get(self.position, 0) * 10)  # Larger reward for faster reach
+            reward += REWARD_GOAL - (
+                self.visited_positions.get(self.position, 0) * 10
+            )  # Larger reward for faster reach
             self.done = True
         else:
             # Penalize repeating the same step (stuck behavior)
             if action in self.failed_actions[self.position]:
                 reward += PENALTY_REPETITIVE_ACTION
-            
+
             # Penalize stalling or revisiting recent positions
             if self.visited_positions.get(self.position, 0) > 2:
                 reward += PENALTY_STALL
@@ -132,7 +138,8 @@ class MazeEnv:
                 self.visited_positions[self.position] = self.visited_positions.get(self.position, 0) + 1
 
         return self.position, reward, self.done, action_names[action]
-    
+
+
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL auf ungesehenes Labyrinth"):
     # Prepare the figure and axis
@@ -142,16 +149,16 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
 
     ax.set_xlim(-margin, env.width + margin)
     ax.set_ylim(-margin, env.height + margin)
-    ax.set_aspect('equal', adjustable='box')
+    ax.set_aspect("equal", adjustable="box")
 
     # Draw static elements (walls, start, goal)
     for wall in env.walls:
         (x1, y1), (x2, y2) = wall.start_position, wall.end_position
-        ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
+        ax.plot([x1, x2], [y1, y2], "k", linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.start_position[0], env.start_position[1], "go", markersize=10)
+    ax.plot(env.goal_position[0], env.goal_position[1], "ro", markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
@@ -167,43 +174,53 @@ def visualize_agent_run(env, positions, total_reward, total_steps, caption="DQL 
         ax.plot(x_values, y_values, color=color, linewidth=2)
 
     # Initialize the agent's position as a blue dot
-    agent_dot, = ax.plot([], [], 'bo', markersize=8)
+    (agent_dot,) = ax.plot([], [], "bo", markersize=8)
 
     # Animation update function
     def update(frame):
         agent_dot.set_data([positions[frame][0]], [positions[frame][1]])
-        return agent_dot,
+        return (agent_dot,)
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
+    animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
 
     # Remove gridlines and axis labels
-    ax.axis('off')
+    ax.axis("off")
 
     # Add performance stats to the side legend
     side_legend_text = f"Steps: {total_steps}\nReward: {int(total_reward)}"
-    fig.text(0.05, 0.79, side_legend_text, fontsize=10, va='center', ha='left', 
-         bbox=dict(facecolor='white', alpha=0.8), transform=fig.transFigure)
+    fig.text(
+        0.05,
+        0.79,
+        side_legend_text,
+        fontsize=10,
+        va="center",
+        ha="left",
+        bbox=dict(facecolor="white", alpha=0.8),
+        transform=fig.transFigure,
+    )
 
     # Add caption above the plot, if provided
     if caption:
-        fig.suptitle(caption, fontsize=12, weight='bold', y=0.95)
+        fig.suptitle(caption, fontsize=12, weight="bold", y=0.95)
 
     # Show the animation
     plt.show()
 
-def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth"):
+
+def visualize_multiple_runs(
+    env, all_positions, num_colors=100, caption="Zusammengefasstes DQL auf ungesehenes Labyrinth"
+):
     # Flatten all positions into a single list
     aggregated_positions = [pos for positions in all_positions for pos in positions]
     position_counts = Counter(aggregated_positions)
     max_visits = max(position_counts.values())
-    
+
     # Adjust the colormap to have 'num_colors' steps
     colors = plt.cm.Blues(np.linspace(0.01, 2, num_colors))  # Gradation from light to dark blue
     cmap = mcolors.ListedColormap(colors)
     norm = mcolors.BoundaryNorm(
-        boundaries=np.linspace(1, max_visits + 1, num_colors + 1),  # Define boundaries dynamically
-        ncolors=num_colors
+        boundaries=np.linspace(1, max_visits + 1, num_colors + 1), ncolors=num_colors  # Define boundaries dynamically
     )
 
     # Prepare the figure and axis
@@ -213,16 +230,16 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
 
     ax.set_xlim(-margin, env.width + margin)
     ax.set_ylim(-margin, env.height + margin)
-    ax.set_aspect('equal', adjustable='box')
+    ax.set_aspect("equal", adjustable="box")
 
     # Draw static elements (walls, start, goal)
     for wall in env.walls:
         (x1, y1), (x2, y2) = wall.start_position, wall.end_position
-        ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
+        ax.plot([x1, x2], [y1, y2], "k", linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.start_position[0], env.start_position[1], "go", markersize=10)
+    ax.plot(env.goal_position[0], env.goal_position[1], "ro", markersize=10)
 
     # Draw the heatmap-style paths
     for positions in all_positions:
@@ -233,7 +250,7 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
             ax.plot(x_values, y_values, color=color, linewidth=2)
 
     # Remove gridlines and axis labels
-    ax.axis('off')
+    ax.axis("off")
 
     # Add a legend at the top-left corner with aggregated statistics
     total_runs = len(all_positions)
@@ -248,16 +265,25 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
         f"Average Steps: {avg_steps:.0f}"
     )
 
-   # Add performance stats to the side legend
-    fig.text(0.02, 0.76, legend_text, fontsize=10, va='center', ha='left', 
-         bbox=dict(facecolor='white', alpha=0.8), transform=fig.transFigure)
+    # Add performance stats to the side legend
+    fig.text(
+        0.02,
+        0.76,
+        legend_text,
+        fontsize=10,
+        va="center",
+        ha="left",
+        bbox=dict(facecolor="white", alpha=0.8),
+        transform=fig.transFigure,
+    )
 
     # Add caption above the plot, if provided
     if caption:
-        fig.suptitle(caption, fontsize=12, weight='bold', y=0.95)
+        fig.suptitle(caption, fontsize=12, weight="bold", y=0.95)
 
     # Show the plot
     plt.show()
+
 
 # ============ DEEP Q-NETWORK CLASS ============ #
 class DQN(nn.Module):
@@ -290,7 +316,7 @@ class Agent:
         """Store experiences in memory for training."""
         self.memory.append((state_seq, action, reward, next_state_seq, done))
 
-    def act(self, state_seq, env):
+    def act(self, state_seq):
         """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
         if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
@@ -344,24 +370,24 @@ class Agent:
         if self.epsilon > MIN_EPSILON:
             self.epsilon *= EPSILON_DECAY
 
-
     def clone_from(self, best_agent):
         """Copy the model and optimizer state from the best agent."""
         self.model.load_state_dict(best_agent.model.state_dict())
         self.optimizer.load_state_dict(best_agent.optimizer.state_dict())
         self.epsilon = best_agent.epsilon
 
+
 # ============ TRAINING AND TESTING FUNCTIONS ============ #
-def train_agents_on_maze(agents, maze_data, training_repeats=10):
+def train_agents_on_maze(agents, maze_data):
     """Train agents on a single maze and clone the best-performing agent."""
     best_agent = None
-    highest_reward = float('-inf')
+    highest_reward = float("-inf")
     for i, agent in enumerate(agents):
         total_reward = 0
         env = MazeEnv(maze_data)
         state_seq = [env.reset()] * SEQUENCE_LENGTH
-        for step in range(MAX_STEPS_PER_EPISODE):
-            action = agent.act(state_seq, env)
+        for _ in range(MAX_STEPS_PER_EPISODE):
+            action = agent.act(state_seq)
             next_state, reward, done, _ = env.step(action)
             next_state_seq = state_seq[1:] + [next_state]
             agent.store_experience(state_seq, action, reward, next_state_seq, done)
@@ -370,33 +396,35 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        #print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        logger.debug(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
-    #print(f"Best agent selected with reward: {highest_reward}")
+    logger.debug(f"Best agent selected with reward: {highest_reward}")
     return best_agent
+
 
 def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES):
     """Train agents across multiple mazes for a specified number of episodes."""
-    for episode in range(training_episodes):
+    for _ in range(training_episodes):
         for maze_index, maze in enumerate(mazes):
-            #print(f"  Training agents on maze {maze_index + 1}/{len(mazes)}...")
+            logger.debug(f"  Training agents on maze {maze_index + 1}/{len(mazes)}...")
             best_agent = train_agents_on_maze(agents, maze)
             for agent in agents:
                 agent.clone_from(best_agent)
+
 
 def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     """Test the trained agent on the test maze multiple times and visualize the aggregated paths."""
     env = MazeEnv(test_maze)
     all_positions = []  # To store paths from multiple runs
 
-    for run in range(num_runs):
+    for _ in range(num_runs):
         state_seq = [env.reset()] * SEQUENCE_LENGTH
         positions = [env.position]  # Track positions for this run
 
-        for step in range(MAX_STEPS_PER_EPISODE):
-            action = agent.act(state_seq, env)
+        for _ in range(MAX_STEPS_PER_EPISODE):
+            action = agent.act(state_seq)
             next_state, _, done, _ = env.step(action)
             state_seq = state_seq[1:] + [next_state]
             positions.append(next_state)
@@ -408,6 +436,7 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     # Visualize the aggregated runs
     visualize_multiple_runs(env, all_positions)
 
+
 def test_agent(agent, test_maze):
     """Test the trained agent on an unseen maze and render the path step-by-step."""
     env = MazeEnv(test_maze)
@@ -417,7 +446,7 @@ def test_agent(agent, test_maze):
     total_reward = 0  # Track total reward during testing
     positions = [env.position]  # List to store positions for animation
 
-    #print("Agent's movements on the test maze:")
+    logger.debug("Agent's movements on the test maze:")
     for step in range(MAX_STEPS_PER_EPISODE):
         action = agent.act(state_seq, env)
         next_state, reward, done, action_name = env.step(action)
@@ -427,7 +456,9 @@ def test_agent(agent, test_maze):
         total_reward += reward  # Update total reward
 
         # Print the current position, action, reward, and whether the goal was reached
-        #print(f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}")
+        logger.debug(
+            f"Step {step + 1}: Position {next_state}, Action {action_name}, Reward {reward}, Goal Reached: {done}"
+        )
 
         if done:
             print(f"Goal reached in {step + 1} steps.")
@@ -457,6 +488,5 @@ train_agents_across_mazes(agents, TRAINING_MAZES, TRAINING_EPISODES)
 # Test the best agent from the last maze training
 best_agent = agents[0]  # Any agent, as they are all cloned to the best one at the end
 print("\nTesting the best agent on unseen test maze...")
-#test_agent(best_agent, TEST_MAZE)
+# test_agent(best_agent, TEST_MAZE)
 test_agent_multiple_runs(best_agent, TEST_MAZE, num_runs=NUM_TEST_RUNS)
-

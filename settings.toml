@@ -1,21 +1,25 @@
 [default]
-LEARNING_RATE = 0.1
-DISCOUNT_FACTOR = 0.9
-EPSILON_START = 0.3
-EPSILON_DECAY = 0.999
-NUM_EPISODES = 100
-MAX_STEPS_PER_EPISODE = 1000
-ACTIONS = ["forward", "turn_left", "turn_right"]
-CELL_SIZE = 180
-STEP_SIZE = 0.5
-MAX_DISTANCE = 2000                              # bigger than max(cell_size * width, cell_size * height)
-OFFSET_ANGLE = 30
+cell_size = 180
+
+[default.ql]
+learning_rate = 0.1
+discount_factor = 0.9
+epsilon_start = 0.3
+epsilon_decay = 0.999
+num_episodes = 100
+max_steps_per_episode = 1000
+actions = ["forward", "turn_left", "turn_right"]
 
 [default.evolution]
 input_size = 8
 hidden_size = 16
 output_size = 3
 max_steps = 50
+
+[default.sensor.tof]
+step_size = 0.5
+max_distance = 2000 # bigger than max(cell_size * width, cell_size * height)
+offset_angle = 30
 
 [default.logging]
 level = "INFO"

@@ -1,9 +1,10 @@
+import matplotlib.pyplot as plt
+
 from micromazemaster.models.maze import Maze
 from micromazemaster.models.mouse import Mouse, Orientation
-import matplotlib.pyplot as plt
 from micromazemaster.utils.config import settings
 
-cell_size = settings.CELL_SIZE
+cell_size = settings.cell_size
 
 maze = Maze(width=5, height=5, seed=1234)
 mouse = Mouse(x=0.5, y=0.5, orientation=Orientation.EAST, maze=maze)
@@ -30,11 +31,22 @@ fig, ax = maze.plot()
 
 for sensor in mouse.sensors:
     distance, intersection_point = sensor.get_distance(maze)
-    distance, intersection_point = distance / cell_size, (intersection_point[0] / cell_size, intersection_point[1] / cell_size)
-    ax.plot([sensor.mouse.position[0], intersection_point[0]], [sensor.mouse.position[1], intersection_point[1]], 'r--', label='Ray')
-    print(f"Sensor at ({sensor.mouse.position[0]}, {sensor.mouse.position[1]}) with angle {sensor.get_angle()}: Distance to the wall = {distance} mm")
+    assert distance is not None and intersection_point is not None
+    distance, intersection_point = distance / cell_size, (
+        intersection_point[0] / cell_size,
+        intersection_point[1] / cell_size,
+    )
+    ax.plot(
+        [sensor.mouse.position[0], intersection_point[0]],
+        [sensor.mouse.position[1], intersection_point[1]],
+        "r--",
+        label="Ray",
+    )
+    print(
+        f"Sensor at ({sensor.mouse.position[0]}, {sensor.mouse.position[1]}) with angle {sensor.get_angle()}: Distance to the wall = {distance} mm"
+    )
 
-ax.plot(mouse.sensors[1].mouse.position[0], mouse.sensors[1].mouse.position[1], 'bo', label='Sensor', markersize=20)
+ax.plot(mouse.sensors[1].mouse.position[0], mouse.sensors[1].mouse.position[1], "bo", label="Sensor", markersize=20)
 
 plt.xticks(range(0, 6))
 plt.yticks(range(0, 6))

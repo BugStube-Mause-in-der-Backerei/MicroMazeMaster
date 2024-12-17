@@ -1,11 +1,12 @@
-from micromazemaster.models.maze import Maze
 import random
 from collections import Counter
-from shapely.geometry import LineString
+
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.colors as mcolors
 from matplotlib import animation
+
+from micromazemaster.models.maze import Maze
 
 # ============ PARAMETERS ============ #
 MAZE_SIZE = (10, 5)
@@ -21,13 +22,15 @@ MAX_STEPS_PER_EPISODE = 300
 
 action_random = random.Random(ACTION_SEED)
 
+
 def generate_mazes(seed):
     random.seed(seed)
     mazes = []
-    for index in range(NUM_MAZES):
+    for _ in range(NUM_MAZES):
         mazes.append(Maze(MAZE_SIZE[0], MAZE_SIZE[1], seed=random.randint(1, 1000)))
     random.seed(None)
     return mazes
+
 
 # ============ ENVIRONMENT CLASS ============ #
 class MazeEnv:
@@ -47,7 +50,7 @@ class MazeEnv:
 
     def hits_wall(self, position, new_position):
         return not self.maze.is_valid_move_position(position, new_position)
-    
+
     def step(self, action):
         moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
         action_names = ["North", "South", "West", "East"]
@@ -61,6 +64,7 @@ class MazeEnv:
 
         return self.position, self.done, action_names[action]
 
+
 # ============ VISUALIZATION ============ #
 def visualize_agent_run(env, positions, total_steps, caption="Zufällige Entscheidungen auf ungesehenes Labyrinth"):
     # Prepare the figure and axis
@@ -70,16 +74,16 @@ def visualize_agent_run(env, positions, total_steps, caption="Zufällige Entsche
 
     ax.set_xlim(-margin, env.width + margin)
     ax.set_ylim(-margin, env.height + margin)
-    ax.set_aspect('equal', adjustable='box')
+    ax.set_aspect("equal", adjustable="box")
 
     # Draw static elements (walls, start, goal)
     for wall in env.walls:
         (x1, y1), (x2, y2) = wall.start_position, wall.end_position
-        ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
+        ax.plot([x1, x2], [y1, y2], "k", linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.start_position[0], env.start_position[1], "go", markersize=10)
+    ax.plot(env.goal_position[0], env.goal_position[1], "ro", markersize=10)
 
     # Draw the heatmap-style path
     position_counts = Counter(positions)
@@ -95,44 +99,54 @@ def visualize_agent_run(env, positions, total_steps, caption="Zufällige Entsche
         ax.plot(x_values, y_values, color=color, linewidth=2)
 
     # Initialize the agent's position as a blue dot
-    agent_dot, = ax.plot([], [], 'bo', markersize=8)
+    (agent_dot,) = ax.plot([], [], "bo", markersize=8)
 
     # Animation update function
     def update(frame):
         agent_dot.set_data([positions[frame][0]], [positions[frame][1]])
-        return agent_dot,
+        return (agent_dot,)
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
+    animation.FuncAnimation(fig, update, frames=len(positions), interval=10, blit=True)
 
     # Remove gridlines and axis labels
-    ax.axis('off')
+    ax.axis("off")
 
     # Add performance stats to the side legend
     side_legend_text = f"Steps: {total_steps}"
-    fig.text(0.05, 0.79, side_legend_text, fontsize=10, va='center', ha='left', 
-         bbox=dict(facecolor='white', alpha=0.8), transform=fig.transFigure)
+    fig.text(
+        0.05,
+        0.79,
+        side_legend_text,
+        fontsize=10,
+        va="center",
+        ha="left",
+        bbox=dict(facecolor="white", alpha=0.8),
+        transform=fig.transFigure,
+    )
 
     # Add caption above the plot, if provided
     if caption:
-        fig.suptitle(caption, fontsize=12, weight='bold', y=0.95)
+        fig.suptitle(caption, fontsize=12, weight="bold", y=0.95)
 
     # Show the animation
     plt.show()
 
-def visualize_multiple_runs(env, all_positions, num_colors=20, caption="Zusammengefasste zufällige Entscheidungen auf ungesehenes Labyrinth"):
-   
+
+def visualize_multiple_runs(
+    env, all_positions, num_colors=20, caption="Zusammengefasste zufällige Entscheidungen auf ungesehenes Labyrinth"
+):
+
     # Flatten all positions into a single list
     aggregated_positions = [pos for positions in all_positions for pos in positions]
     position_counts = Counter(aggregated_positions)
     max_visits = max(position_counts.values())
-    
+
     # Adjust the colormap to have 'num_colors' steps
     colors = plt.cm.Blues(np.linspace(0.1, 1, num_colors))  # Gradation from light to dark blue
     cmap = mcolors.ListedColormap(colors)
     norm = mcolors.BoundaryNorm(
-        boundaries=np.linspace(1, max_visits + 1, num_colors + 1),  # Define boundaries dynamically
-        ncolors=num_colors
+        boundaries=np.linspace(1, max_visits + 1, num_colors + 1), ncolors=num_colors  # Define boundaries dynamically
     )
 
     # Prepare the figure and axis
@@ -142,16 +156,16 @@ def visualize_multiple_runs(env, all_positions, num_colors=20, caption="Zusammen
 
     ax.set_xlim(-margin, env.width + margin)
     ax.set_ylim(-margin, env.height + margin)
-    ax.set_aspect('equal', adjustable='box')
+    ax.set_aspect("equal", adjustable="box")
 
     # Draw static elements (walls, start, goal)
     for wall in env.walls:
         (x1, y1), (x2, y2) = wall.start_position, wall.end_position
-        ax.plot([x1, x2], [y1, y2], 'k', linewidth=3)  # Thicker walls
+        ax.plot([x1, x2], [y1, y2], "k", linewidth=3)  # Thicker walls
 
     # Draw the path start and goal
-    ax.plot(env.start_position[0], env.start_position[1], 'go', markersize=10)
-    ax.plot(env.goal_position[0], env.goal_position[1], 'ro', markersize=10)
+    ax.plot(env.start_position[0], env.start_position[1], "go", markersize=10)
+    ax.plot(env.goal_position[0], env.goal_position[1], "ro", markersize=10)
 
     # Draw the heatmap-style paths
     for positions in all_positions:
@@ -162,7 +176,7 @@ def visualize_multiple_runs(env, all_positions, num_colors=20, caption="Zusammen
             ax.plot(x_values, y_values, color=color, linewidth=2)
 
     # Remove gridlines and axis labels
-    ax.axis('off')
+    ax.axis("off")
 
     # Add a legend at the top-left corner with aggregated statistics
     total_runs = len(all_positions)
@@ -177,16 +191,25 @@ def visualize_multiple_runs(env, all_positions, num_colors=20, caption="Zusammen
         f"Average Steps: {avg_steps:.0f}"
     )
 
-   # Add performance stats to the side legend
-    fig.text(0.02, 0.76, legend_text, fontsize=10, va='center', ha='left', 
-         bbox=dict(facecolor='white', alpha=0.8), transform=fig.transFigure)
+    # Add performance stats to the side legend
+    fig.text(
+        0.02,
+        0.76,
+        legend_text,
+        fontsize=10,
+        va="center",
+        ha="left",
+        bbox=dict(facecolor="white", alpha=0.8),
+        transform=fig.transFigure,
+    )
 
     # Add caption above the plot, if provided
     if caption:
-        fig.suptitle(caption, fontsize=12, weight='bold', y=0.95)
+        fig.suptitle(caption, fontsize=12, weight="bold", y=0.95)
 
     # Show the plot
     plt.show()
+
 
 # ============ RANDOM AGENT CLASS ============ #
 class RandomAgent:
@@ -195,6 +218,7 @@ class RandomAgent:
 
     def act(self):
         return action_random.choice(range(self.action_size))
+
 
 # ============ TEST FUNCTION ============ #
 def test_agent(agent, test_maze):
@@ -220,6 +244,7 @@ def test_agent(agent, test_maze):
 
     visualize_agent_run(env, path, total_steps)
 
+
 def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     """
     Test the random agent on the test maze multiple times and collect all paths.
@@ -227,7 +252,7 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
     env = MazeEnv(test_maze)
     all_positions = []  # Store paths from all runs
 
-    for run in range(num_runs):
+    for _ in range(num_runs):
         state = env.reset()
         path = [state]  # Track positions for this run
 
@@ -242,6 +267,7 @@ def test_agent_multiple_runs(agent, test_maze, num_runs=10):
 
     return all_positions
 
+
 # ============ MAIN SCRIPT ============ #
 ALL_MAZES = generate_mazes(SEED)
 TEST_MAZE = ALL_MAZES[-1]
@@ -249,7 +275,7 @@ TEST_MAZE = ALL_MAZES[-1]
 agent = RandomAgent(action_size=4)
 
 print("\nTesting random agent on unseen test maze...")
-#test_agent(agent, TEST_MAZE)
+# test_agent(agent, TEST_MAZE)
 
 runs_positions = test_agent_multiple_runs(agent, TEST_MAZE, num_runs=NUM_TEST_RUNS)
 visualize_multiple_runs(env=MazeEnv(TEST_MAZE), all_positions=runs_positions)

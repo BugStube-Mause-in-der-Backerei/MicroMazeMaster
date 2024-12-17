@@ -1,6 +1,10 @@
+import os
+from pathlib import PurePath
+
 import typer
 
 from micromazemaster.utils.config import settings
+from micromazemaster.utils.logging import logger
 
 micromazemaster_cli = typer.Typer(
     invoke_without_command=True,
@@ -14,6 +18,12 @@ micromazemaster_cli = typer.Typer(
 @micromazemaster_cli.callback()
 def micrmoazemaster_callback(ctx: typer.Context):
     pass
+
+
+@micromazemaster_cli.command()
+def train():
+    WORKING_DIR = PurePath(os.getcwd())
+    logger.debug(f"Working directory: {WORKING_DIR}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,3 @@
-from micromazemaster.models.maze import Maze
-from micromazemaster.models.mouse import Mouse, Orientation
-
 class Backtracker:
     count = 0
 
@@ -8,8 +5,8 @@ class Backtracker:
         pass
 
     @classmethod
-    def doBacktracking(self, mouse):
-        self.count += 1
+    def doBacktracking(cls, mouse):
+        cls.count += 1
         maze = mouse.maze
         ways = [False, False, False]
 
@@ -20,7 +17,7 @@ class Backtracker:
         ways[0] = maze.is_valid_move_orientation((mouse.position[0], mouse.position[1]), mouse.orientation.subtract(1))
         ways[2] = maze.is_valid_move_orientation((mouse.position[0], mouse.position[1]), mouse.orientation.add(1))
 
-        print(str(mouse.position) + " : " + str(mouse.orientation) + " : " + str(ways) + " : " + str(self.count))
+        print(str(mouse.position) + " : " + str(mouse.orientation) + " : " + str(ways) + " : " + str(cls.count))
 
         for i in range(0, len(ways)):
             if ways[i]:
@@ -34,7 +31,7 @@ class Backtracker:
                         mouse.turn_right()
                         mouse.move_forward()
 
-                result = self.doBacktracking(mouse)
+                result = cls.doBacktracking(mouse)
 
                 if result == 1:
                     return 1

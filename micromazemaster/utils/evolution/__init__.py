@@ -13,7 +13,6 @@ from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 from micromazemaster.models.maze import Maze, Orientation
 from micromazemaster.models.mouse import Mouse
 from micromazemaster.utils.config import settings
-from micromazemaster.utils.logging import logger
 
 
 class Action(IntEnum):

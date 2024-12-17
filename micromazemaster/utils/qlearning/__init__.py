@@ -24,34 +24,34 @@ class Qlearning:
         for x in np.arange(0.5, maze_size[0], 1):
             for y in np.arange(0.5, maze_size[1], 1):
                 for orientation in range(4):
-                    q_table[(x, y, orientation)] = np.zeros(len(settings.ACTIONS))
+                    q_table[(x, y, orientation)] = np.zeros(len(settings.ql.actions))
 
         walls_sorted_by_x, walls_sorted_by_y = preprocess_walls(self.maze.walls)
 
-        episode_rewards, episode_steps, best_path = train(
-            num_episodes=settings.NUM_EPISODES,
-            max_steps_per_episode=settings.MAX_STEPS_PER_EPISODE,
+        episode_rewards, episode_steps, _ = train(
+            num_episodes=settings.ql.num_episodes,
+            max_steps_per_episode=settings.ql.max_steps_per_episode,
             q_table=q_table,
-            actions=settings.ACTIONS,
+            actions=settings.ql.actions,
             start_position=self.start_position,
             goal_position=self.goal_position,
-            epsilon_decay=settings.EPSILON_DECAY,
-            learning_rate=settings.LEARNING_RATE,
-            discount_factor=settings.DISCOUNT_FACTOR,
-            epsilon=settings.EPSILON_START,
+            epsilon_decay=settings.ql.epsilon_decay,
+            learning_rate=settings.ql.learning_rate,
+            discount_factor=settings.ql.discount_factor,
+            epsilon=settings.ql.epsilon_start,
             walls_sorted_by_x=walls_sorted_by_x,
             walls_sorted_by_y=walls_sorted_by_y,
             maze_size=maze_size,
         )
 
-        actions_taken, path, perceived_walls = simulate_path(
+        _, path, perceived_walls = simulate_path(
             start_position=self.start_position,
             goal_position=self.goal_position,
             q_table=q_table,
-            actions=settings.ACTIONS,
+            actions=settings.ql.actions,
             walls_sorted_by_x=walls_sorted_by_x,
             walls_sorted_by_y=walls_sorted_by_y,
-            max_steps=settings.MAX_STEPS_PER_EPISODE,
+            max_steps=settings.ql.max_steps_per_episode,
             maze_size=maze_size,
         )
 

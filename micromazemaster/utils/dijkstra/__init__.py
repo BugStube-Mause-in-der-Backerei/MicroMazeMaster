@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from matplotlib.figure import Figure
 
 from micromazemaster.models.maze import Maze
 
@@ -16,7 +17,7 @@ def dijkstra_path(maze: Maze) -> list[tuple[int, int]]:
     return nx.dijkstra_path(maze.graph, maze.start, maze.goal)
 
 
-def plot_path(maze: Maze, fig: plt.figure, path: list[tuple[int, int]]) -> None:
+def plot_path(maze: Maze, fig: Figure, path: list[tuple[int, int]]) -> None:
     """Plots the path on the maze.
 
     Args:

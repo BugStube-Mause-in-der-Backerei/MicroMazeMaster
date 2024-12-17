@@ -125,7 +125,7 @@ def train(
             state = (position[0], position[1], orientation)
 
             if random.uniform(0, 1) < epsilon:
-                action = random.choice(settings.actions)
+                action = random.choice(settings.ql.actions)
             else:
                 action = actions[np.argmax(q_table[state])]
 

@@ -3,7 +3,7 @@
 ## Quickstart
 
 ```bash
-poetry install --with-dev
+poetry install --with dev
 
 ```
 

@@ -1,12 +1,15 @@
 import math
-import numpy as np
-from micromazemaster.models.maze import Maze
 from typing import Optional, Tuple
+
+import numpy as np
+
+from micromazemaster.models.maze import Maze
 from micromazemaster.utils.config import settings
 
-step_size = settings.STEP_SIZE
-max_distance = settings.MAX_DISTANCE
-cell_size = settings.CELL_SIZE
+step_size = settings.sensor.tof.step_size
+max_distance = settings.sensor.tof.max_distance
+cell_size = settings.cell_size
+
 
 class TOFSensor:
     def __init__(self, mouse, offset_angle=0):
@@ -34,14 +37,17 @@ class TOFSensor:
         ray_dy = math.sin(math.radians(self.get_angle()))
 
         for distance in np.arange(0, max_distance, step_size):
-            ray_x = self.mouse.position[0]*cell_size + distance * ray_dx
-            ray_y = self.mouse.position[1]*cell_size + distance * ray_dy
+            ray_x = self.mouse.position[0] * cell_size + distance * ray_dx
+            ray_y = self.mouse.position[1] * cell_size + distance * ray_dy
 
             grid_x = int(ray_x)
             grid_y = int(ray_y)
 
             if maze.map[grid_y, grid_x] == 1:
-                distance = math.sqrt((ray_x - self.mouse.position[0]*cell_size) ** 2 + (ray_y - self.mouse.position[1]*cell_size) ** 2)
+                distance = math.sqrt(
+                    (ray_x - self.mouse.position[0] * cell_size) ** 2
+                    + (ray_y - self.mouse.position[1] * cell_size) ** 2
+                )
                 return distance, (ray_x, ray_y)
 
         return None, None

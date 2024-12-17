@@ -17,7 +17,7 @@ def button_callback():
     global path
     maze = Maze(10, 10, random.randrange(100))
     model = Qlearning(maze=maze, start_position=(0.5, 0.5), goal_position=(5.5, 5.5), close_figure=True)
-    _plt, path = model.run()
+    _, path = model.run()
     update_canvas()
 
 
