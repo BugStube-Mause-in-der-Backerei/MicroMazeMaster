@@ -14,8 +14,14 @@ cool_banner = rf"""
 
 {__version__}
 """
+import signal
+import sys
+
 from rich import print  # noqa
 
 from micromazemaster.utils.config import settings  # noqa
+
+signal.signal(signal.SIGINT, lambda sig, frame: sys.exit(0))  # noqa
+signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))  # noqa
 
 print(cool_banner)

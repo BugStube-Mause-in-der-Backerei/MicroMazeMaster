@@ -6,6 +6,8 @@ from enum import IntEnum
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from PIL import Image, ImageDraw
 from shapely.geometry import LineString
 
@@ -60,7 +62,6 @@ class Maze:
         self.walls = []
         self.shapely_walls = []
         self.graph = nx.Graph()
-        self.goal = ()
         self.start = (0.5, 0.5)
         if generation:
             self.__generate_maze()
@@ -213,7 +214,7 @@ class Maze:
         image = self.__generate_image(cell_size)
         image.show()
 
-    def plot(self) -> tuple[plt.Figure, plt.Axes]:
+    def plot(self) -> tuple[Figure, Axes]:
         fig = plt.figure(figsize=(self.width, self.height))
         ax = fig.add_subplot(111)
         for wall in self.shapely_walls:
@@ -222,7 +223,7 @@ class Maze:
         plt.axis("off")
         return fig, ax
 
-    def plot_graph(self) -> plt.Figure:
+    def plot_graph(self) -> Figure:
         """Plots the maze graph.
 
         Args:
@@ -260,6 +261,7 @@ class Maze:
             logger.error(f"Error writing to file: {e}")
 
     def is_valid_move_orientation(self, position, orientation):
+        new_position = None
         match orientation:
             case Orientation.NORTH:
                 new_position = (position[0], position[1] + 1)
@@ -270,6 +272,7 @@ class Maze:
             case Orientation.WEST:
                 new_position = (position[0] - 1, position[1])
 
+        assert new_position is not None
         return new_position in nx.neighbors(self.graph, position)
 
     def is_valid_move_position(self, position, new_position):
