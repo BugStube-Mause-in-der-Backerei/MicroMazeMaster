@@ -51,8 +51,7 @@ RUN set -eux \
         # deps for installing poetry
         curl \
         # deps for building python deps
-        build-essential \
-        cmake
+        build-essential
 
 # install poetry - respects $POETRY_VERSION & $POETRY_HOME
 # The --mount will mount the buildx cache directory to where 
@@ -64,10 +63,11 @@ RUN --mount=type=cache,target=/root/.cache \
 WORKDIR $PYSETUP_PATH
 COPY poetry.lock pyproject.toml README.md settings.toml ./
 COPY micromazemaster ./micromazemaster
+COPY .github/wheel/onnxsim-0.4.36-cp311-cp311-linux_aarch64.whl ./.github/wheel/onnxsim-0.4.36-cp311-cp311-linux_aarch64.whl
 
 # install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
 RUN --mount=type=cache,target=/root/.cache \
-    poetry install --without=dev --with=microexport
+    poetry install --without=dev,microexport
 
 
 ################################

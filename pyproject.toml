@@ -43,7 +43,11 @@ onnx-graphsurgeon = "^0.5.2"
 sng4onnx = "^1.0.4"
 onnxruntime = "^1.20.0"
 sne4onnx = "^1.0.13"
-onnxsim = "^0.4.36"
+onnxsim = [
+  { version = "^0.4.36", markers = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+  { path = ".github/wheel/onnxsim-0.4.36-cp311-cp311-linux_aarch64.whl", markers = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+  { version = "^0.4.36", markers = "sys_platform == 'darwin'" },
+]
 
 
 [build-system]

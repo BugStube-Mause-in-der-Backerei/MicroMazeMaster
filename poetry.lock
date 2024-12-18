@@ -2536,6 +2536,24 @@ onnx = "*"
 rich = "*"
 
 [[package]]
+name = "onnxsim"
+version = "0.4.36"
+description = "Simplify your ONNX model"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "onnxsim-0.4.36-cp311-cp311-linux_aarch64.whl", hash = "sha256:57c2d70960faf1e2f5fa9751901c7c2e9b727987bae1c947d13d040d893c8fb6"},
+]
+
+[package.dependencies]
+onnx = "*"
+rich = "*"
+
+[package.source]
+type = "file"
+url = ".github/wheel/onnxsim-0.4.36-cp311-cp311-linux_aarch64.whl"
+
+[[package]]
 name = "opt-einsum"
 version = "3.4.0"
 description = "Path optimization of einsum functions."
@@ -4222,4 +4240,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.11"
-content-hash = "ecfc6f29a4785cd0cc1cf73223e07d0f87ae6861b463385da128e19741aa445e"
+content-hash = "2e461bd189f280cd6653ae77ebf0191c020d47503e4ec453b508d7e96e1bab52"
