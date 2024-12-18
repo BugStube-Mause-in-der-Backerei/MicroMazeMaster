@@ -274,7 +274,7 @@ class Evolution:
             self.training_progress = self.progress.add_task("[red]Training", total=self.num_generations)
 
             for generation in range(self.num_generations):
-                if generation % 100 == 0:
+                if generation > 0 and generation % 100 == 0:
                     steps += 10
                     if steps > settings.evolution.max_steps:
                         steps = settings.evolution.max_steps

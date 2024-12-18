@@ -3,6 +3,7 @@ from pathlib import PurePath
 
 import typer
 
+from micromazemaster.tools.cli.train import train_cli
 from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
 
@@ -13,6 +14,7 @@ micromazemaster_cli = typer.Typer(
     pretty_exceptions_enable=settings.typer.enable_pretty_exception,
     pretty_exceptions_show_locals=settings.typer.show_pretty_exception_local,
 )
+micromazemaster_cli.add_typer(train_cli, name="train")
 
 
 @micromazemaster_cli.callback()
