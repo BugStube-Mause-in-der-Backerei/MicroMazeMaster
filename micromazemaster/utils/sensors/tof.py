@@ -10,7 +10,6 @@ step_size = settings.sensor.tof.step_size
 max_distance = settings.sensor.tof.max_distance
 cell_size = settings.cell_size
 
-
 class TOFSensor:
     def __init__(self, mouse, offset_angle=0):
         self.mouse = mouse
@@ -51,3 +50,42 @@ class TOFSensor:
                 return distance, (ray_x, ray_y)
 
         return None, None
+
+
+class SensorGroup:
+    def __init__(self, mode):
+        self.sensors = []
+        self.mode = mode
+        self.noise_func = None
+
+    def add_sensor(self, sensor: TOFSensor, offset_value: float):
+        self.sensors.append((sensor, offset_value))
+
+    def get_distance(self, maze: Maze) -> Tuple[Optional[float], Optional[Tuple[float, float]]]:
+        data = []
+
+        for sensor in self.sensors:
+            raw, point = sensor[0].get_distance(maze)
+            raw += sensor[1]
+            if self.noise_func:
+                raw = self.noise_func(raw)
+            data.append((raw, point))
+
+        match self.mode:
+            case "min":
+                min_tuple = min(data, key=lambda x: x[0])
+                return min_tuple
+            case "max":
+                max_tuple = max(data, key=lambda x: x[0])
+                return max_tuple
+            case "mean":
+                mean_value = np.mean([x[0] for x in data])
+                closest_tuple = min(data, key=lambda x: abs(x[0] - mean_value))
+                return closest_tuple
+            case "median":
+                median_value = np.median([x[0] for x in data])
+                closest_tuple = min(data, key=lambda x: abs(x[0] - median_value))
+                return closest_tuple
+            case _:
+                min_tuple = min(data, key=lambda x: x[0])
+                return min_tuple
