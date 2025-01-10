@@ -28,7 +28,7 @@ level = "INFO"
 enable_pretty_exception = true
 show_pretty_exception_local = false
 
-[development]
+[testing]
 
-[development.logging]
+[testing.logging]
 level = "DEBUG"

@@ -54,6 +54,8 @@ atexit.register(exit_handler)
 # +
 random.seed(42)
 
+torch.manual_seed(42)
+
 seeds = [random.randint(0, 100000) for _ in range(31)]
 
 # Generate a maze
@@ -61,7 +63,6 @@ mazes = [Maze(width=5, height=5, seed=seed) for seed in seeds]
 
 # Split the mazes into training and evaluation
 train_mazes = mazes[:-1]
-eval_maze = mazes[-1]
 
 
 # +

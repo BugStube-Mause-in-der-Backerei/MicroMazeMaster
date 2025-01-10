@@ -22,10 +22,10 @@ except BoxKeyError or AttributeError:
 
 logger.setLevel(settings.logging.level)
 
+logger.info("[ Using Environment ]\t %s", settings.current_env)
+
 if settings.logging.level == "DEBUG":
     if settings.root_path_for_dynaconf:
         logger.debug("Config root path: %s", settings.root_path_for_dynaconf)
     print("CONFIG".center(50, "="))
     print(settings.as_dict())
-else:
-    logger.info("[ Using Environment ]\t %s", settings.current_env)
