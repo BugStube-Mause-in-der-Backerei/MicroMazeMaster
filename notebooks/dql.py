@@ -15,10 +15,11 @@ import math
 # ============ PARAMETER ============ #
 MAZE_SIZE = (10, 5)
 SEED = 20
-ACTION_SEED = 5
+ACTION_SEED = 4
 NUM_MAZES = 20
 NUM_AGENTS = 3
 NUM_TEST_RUNS = 100
+
 STARTING_POSITION = (0.5, 0.5)
 GOAL_POSITION = (9.5, 4.5)
 
@@ -78,7 +79,7 @@ class MazeEnv:
 
     def hits_wall(self, position, new_position):
         """Check if a movement would hit a wall, using sorted lists of walls for faster searching."""
-        return not self.maze.is_valid_move(position, new_position)
+        return not self.maze.is_valid_move_position(position, new_position)
     
     def distance_to_goal(self, position):
         """Calculate the Euclidean distance to the goal."""
@@ -263,18 +264,19 @@ def visualize_multiple_runs(env, all_positions, num_colors=100, caption="Zusamme
 class DQN(nn.Module):
     def __init__(self, state_size, action_size, hidden_size=HIDDEN_SIZE):
         super(DQN, self).__init__()
-        self.lstm = nn.LSTM(state_size, hidden_size, batch_first=True)
-        self.fc1 = nn.Linear(hidden_size, 24)
-        self.fc2 = nn.Linear(24, action_size)
+        self.fc1 = nn.Linear(state_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, action_size)
 
     def forward(self, x):
-        """Perform a forward pass through the DQN."""
-        h0 = torch.zeros(1, x.size(0), HIDDEN_SIZE).to(device)
-        c0 = torch.zeros(1, x.size(0), HIDDEN_SIZE).to(device)
-        x, _ = self.lstm(x, (h0, c0))
-        x = torch.relu(self.fc1(x[:, -1, :]))
-        return self.fc2(x)
-
+        # x is [batch_size, seq_length, state_dim]
+        batch_size, seq_length, state_dim = x.size()
+        x = x.view(batch_size * seq_length, state_dim)  # Flatten sequences
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = x.view(batch_size, seq_length, -1)  # Reshape back to sequence format
+        x = x[:, -1, :]  # Take the output of the last timestep
+        return self.fc3(x)
 
 # ============ AGENT CLASS ============ #
 class Agent:
@@ -291,27 +293,25 @@ class Agent:
         self.memory.append((state_seq, action, reward, next_state_seq, done))
 
     def act(self, state_seq, env):
-        """Choose action based on epsilon-greedy policy, avoiding previously failed actions."""
+        """Choose action based on epsilon-greedy policy."""
         if action_random.random() <= self.epsilon:
             available_actions = [a for a in range(self.action_size)]
-            if not available_actions:  # If all actions failed, allow any
-                available_actions = list(range(self.action_size))
             return action_random.choice(available_actions)
 
-        state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)
+        state_seq = torch.FloatTensor(state_seq).unsqueeze(0).to(device)  # Shape: [1, seq_length, state_dim]
+        #print(f"state_seq shape in act(): {state_seq.shape}")  # Debug input shape
+
         with torch.no_grad():
             best_action = torch.argmax(self.model(state_seq)).item()
         return best_action
 
+
     def replay(self):
-        """Train model on randomly sampled experiences from memory."""
         if len(self.memory) < BATCH_SIZE:
             return
 
-        # Sample a random minibatch from the replay memory
-        minibatch = action_random.sample(self.memory, BATCH_SIZE)
+        minibatch = random.sample(self.memory, BATCH_SIZE)
 
-        # Prepare arrays to batch process states, actions, rewards, etc.
         state_batch = torch.FloatTensor([experience[0] for experience in minibatch]).to(device)
         action_batch = torch.LongTensor([experience[1] for experience in minibatch]).to(device)
         reward_batch = torch.FloatTensor([experience[2] for experience in minibatch]).to(device)
@@ -319,17 +319,17 @@ class Agent:
         done_batch = torch.FloatTensor([float(experience[4]) for experience in minibatch]).to(device)
 
         # Compute Q-values for current states
-        q_values = self.model(state_batch)  # Shape: [BATCH_SIZE, action_size]
+        q_values = self.model(state_batch)
 
-        # Compute target Q-values for next states
+        # Compute Q-values for next states and take the max Q-value for each
         with torch.no_grad():
-            next_q_values = self.model(next_state_batch)
-            max_next_q_values = torch.max(next_q_values, dim=1)[0]  # Take max over actions
+            next_q_values = self.model(next_state_batch)  # Corrected shape: [BATCH_SIZE, action_size]
+            max_next_q_values = torch.max(next_q_values, dim=1)[0]  # Correctly reduced to [BATCH_SIZE]
 
         # Calculate target for each sample
-        targets = reward_batch + GAMMA * max_next_q_values * (1 - done_batch)  # Zero out next Q for terminal states
+        targets = reward_batch + GAMMA * max_next_q_values * (1 - done_batch)
 
-        # Use advanced indexing to update only the Q-values corresponding to the chosen actions
+        # Use advanced indexing to select the Q-values for chosen actions
         q_values_for_actions = q_values.gather(1, action_batch.unsqueeze(1)).squeeze()
 
         # Calculate loss
@@ -340,10 +340,9 @@ class Agent:
         loss.backward()
         self.optimizer.step()
 
-        # Decay epsilon (for exploration vs. exploitation balance)
+        # Decay epsilon
         if self.epsilon > MIN_EPSILON:
             self.epsilon *= EPSILON_DECAY
-
 
     def clone_from(self, best_agent):
         """Copy the model and optimizer state from the best agent."""
@@ -370,11 +369,11 @@ def train_agents_on_maze(agents, maze_data, training_repeats=10):
             if done:
                 break
         agent.replay()
-        #print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
+        print(f"Agent {i + 1} completed training on maze with total reward: {total_reward}")
         if total_reward > highest_reward:
             highest_reward = total_reward
             best_agent = agent
-    #print(f"Best agent selected with reward: {highest_reward}")
+    print(f"Best agent selected with reward: {highest_reward}")
     return best_agent
 
 def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES):
@@ -386,7 +385,7 @@ def train_agents_across_mazes(agents, mazes, training_episodes=TRAINING_EPISODES
             for agent in agents:
                 agent.clone_from(best_agent)
 
-def test_agent_multiple_runs(agent, test_maze, num_runs=10):
+def test_agent_multiple_runs(agent, test_maze, num_runs):
     """Test the trained agent on the test maze multiple times and visualize the aggregated paths."""
     env = MazeEnv(test_maze)
     all_positions = []  # To store paths from multiple runs
@@ -456,7 +455,8 @@ train_agents_across_mazes(agents, TRAINING_MAZES, TRAINING_EPISODES)
 
 # Test the best agent from the last maze training
 best_agent = agents[0]  # Any agent, as they are all cloned to the best one at the end
+torch.save(best_agent.model.state_dict(), "local_data/dql_13_01_25.pth")
 print("\nTesting the best agent on unseen test maze...")
-#test_agent(best_agent, TEST_MAZE)
+test_agent(best_agent, TEST_MAZE)
 test_agent_multiple_runs(best_agent, TEST_MAZE, num_runs=NUM_TEST_RUNS)
 
