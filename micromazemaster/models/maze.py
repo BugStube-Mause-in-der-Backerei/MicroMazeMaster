@@ -1,11 +1,13 @@
 import json
 import random
 from collections import deque
-from enum import Enum
+from enum import IntEnum
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from PIL import Image, ImageDraw
 from shapely.geometry import LineString
 
@@ -13,11 +15,17 @@ from micromazemaster.utils.config import settings
 from micromazemaster.utils.logging import logger
 
 
-class Orientation(Enum):
+class Orientation(IntEnum):
     NORTH = 0
     EAST = 1
     SOUTH = 2
     WEST = 3
+
+    def add(self, value):
+        return Orientation((self.value + value) % 4)
+
+    def subtract(self, value):
+        return Orientation((self.value - value) % 4)
 
 
 class Cell:
@@ -45,16 +53,15 @@ class Wall:
     def get_positions(self):
         return self.start_position, self.end_position
 
+
 class Maze:
-    def __init__(self, width, height, seed, missing_walls=settings.WALLS_TO_REMOVE, generation=True):
+    def __init__(self, width, height, seed, generation=True):
         self.seed = seed
         self.width = width
         self.height = height
-        self.missing_walls = missing_walls
         self.walls = []
         self.shapely_walls = []
         self.graph = nx.Graph()
-        self.goal = ()
         self.start = (0.5, 0.5)
         if generation:
             self.__generate_maze()
@@ -65,22 +72,11 @@ class Maze:
             "seed": self.seed,
             "width": self.width,
             "height": self.height,
-            "missing_walls": self.missing_walls,
             "walls": [wall.to_dict() for wall in self.walls],
         }
 
     def __generate_maze(self):
         random.seed(self.seed)
-
-        while True:
-            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
-            x = random.randint(0, self.width - 1) + 0.5
-            y = random.randint(0, self.height - 1) + 0.5
-
-            # Ensure the goal is not the start position
-            if (x, y) != self.start:
-                self.goal = (x, y)
-                break
 
         # Initialize map and visited list
         map_cells = [Cell() for _ in range(self.width * self.height)]
@@ -160,13 +156,6 @@ class Maze:
             if in_wall:
                 self.walls.append(Wall(x + 1, start_y, x + 1, self.height))
 
-        # Remove some walls
-        # Check if the number of walls is bigger than the number of walls to remove
-        if len(self.walls) > self.missing_walls:
-            indices_to_remove = random.sample(range(len(self.walls)), self.missing_walls)
-            for wall in sorted(indices_to_remove, reverse=True):
-                self.walls.pop(wall)
-
         # Outer boundary walls
         self.walls.append(Wall(0, 0, self.width, 0))  # top
         self.walls.append(Wall(self.width, 0, self.width, self.height))  # right
@@ -176,6 +165,16 @@ class Maze:
         # Convert walls to shapely objects
         self.shapely_walls = [LineString(wall.get_positions()) for wall in self.walls]
         self.__generate_graph()
+
+        while True:
+            # Generate half-coordinate positions (0.5, 1.5, ..., width-0.5)
+            x = random.randint(0, self.width - 1) + 0.5
+            y = random.randint(0, self.height - 1) + 0.5
+
+            # Ensure the goal is not the start position
+            if nx.dijkstra_path_length(self.graph, self.start, (x, y)) > self.width:
+                self.goal = (x, y)
+                break
 
     def __generate_graph(self):
         for x in range(self.width):
@@ -215,7 +214,7 @@ class Maze:
         image = self.__generate_image(cell_size)
         image.show()
 
-    def plot(self) -> tuple[plt.Figure, plt.Axes]:
+    def plot(self) -> tuple[Figure, Axes]:
         fig = plt.figure(figsize=(self.width, self.height))
         ax = fig.add_subplot(111)
         for wall in self.shapely_walls:
@@ -223,6 +222,32 @@ class Maze:
         plt.axis("equal")
         plt.axis("off")
         return fig, ax
+
+    def plot_graph(self) -> Figure:
+        """Plots the maze graph.
+
+        Args:
+            - maze (Maze): The maze object that contains the walls.
+
+        Returns:
+            - plt.Figure: The figure object.
+        """
+        graph = self.graph
+
+        fig = plt.figure(figsize=(self.width, self.height))
+        pos = {node: (node[0], node[1]) for node in graph.nodes()}
+        nx.draw(
+            graph,
+            pos,
+            with_labels=True,
+            node_size=300,
+            node_color="lightblue",
+            font_size=8,
+            font_color="black",
+            edge_color="gray",
+        )
+        plt.title("Maze in Graph representation")
+        return fig
 
     def export_as_png(self, path, cell_size=20):
         image = self.__generate_image(cell_size)
@@ -235,33 +260,36 @@ class Maze:
         except Exception as e:
             logger.error(f"Error writing to file: {e}")
 
-    def normalize_position(self, position):
-        return tuple(round(coord, 2) for coord in position)
+    def is_valid_move_orientation(self, position, orientation):
+        new_position = None
+        match orientation:
+            case Orientation.NORTH:
+                new_position = (position[0], position[1] + 1)
+            case Orientation.EAST:
+                new_position = (position[0] + 1, position[1])
+            case Orientation.SOUTH:
+                new_position = (position[0], position[1] - 1)
+            case Orientation.WEST:
+                new_position = (position[0] - 1, position[1])
 
-    def is_valid_move(self, position, new_position):
-        position = self.normalize_position(position)
-        new_position = self.normalize_position(new_position)
-        if position == new_position:
-            return True
+        assert new_position is not None
         return new_position in nx.neighbors(self.graph, position)
- 
 
-    def is_dead_end(self, position):
-        return len(list(self.graph.neighbors(position))) == 1
+    def is_valid_move_position(self, position, new_position):
+        return new_position in nx.neighbors(self.graph, position)
 
     @classmethod
     def from_json(cls, path):
         try:
             with open(path, "r") as file:
                 data = json.load(file)
-                maze = cls(data["width"], data["height"], data["seed"], data["missing_walls"], generation=False)
+                maze = cls(data["width"], data["height"], data["seed"], generation=False)
                 maze.walls = [Wall.from_dict(wall_data) for wall_data in data["walls"]]
-
                 return maze
         except Exception as e:
             logger.error(f"Error reading from file: {e}")
             return None
 
-    def __generate_map(self, cell_size=settings.CELL_SIZE):
+    def __generate_map(self, cell_size=settings.CELL_SIZE - 1):
         arr = np.array(self.__generate_image(cell_size), dtype=np.uint8)
         return arr[::-1]

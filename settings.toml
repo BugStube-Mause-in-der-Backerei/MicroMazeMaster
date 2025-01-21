@@ -9,9 +9,11 @@ ACTIONS = ["forward", "turn_left", "turn_right"]
 WALLS_TO_REMOVE = 3
 GRID_TO_MM = 167.5
 CELL_SIZE = 18
-STEP_SIZE = 0.5
-MAX_DISTANCE = 200 # bigger than max(cell_size * width, cell_size * height)
-OFFSET_ANGLE = 15
+
+[default.sensor.tof]
+step_size = 0.5
+max_distance = 2000 # bigger than max(cell_size * width, cell_size * height)
+offset_angle = 30
 
 [default.logging]
 level = "INFO"

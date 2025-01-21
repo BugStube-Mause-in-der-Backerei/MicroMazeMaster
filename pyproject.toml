@@ -26,7 +26,6 @@ onnx-graphsurgeon = "^0.5.2"
 sng4onnx = "^1.0.4"
 onnxruntime = "^1.20.0"
 sne4onnx = "^1.0.13"
-onnxsim = "^0.4.36"
 tqdm = "^4.67.0"
 shapely = "^2.0.6"
 
